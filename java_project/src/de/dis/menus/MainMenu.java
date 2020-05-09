@@ -2,11 +2,11 @@ package de.dis.menus;
 
 import de.dis.FormUtil;
 import de.dis.Menu;
-import de.dis.data.Makler;
+import de.dis.data.EstateAgent;
 
 public class MainMenu {
 
-    private final static String PW = "12345";
+    private final static String PW = "1";
     /**
      * Zeigt das Hauptmen�
      */
@@ -33,7 +33,7 @@ public class MainMenu {
                     System.out.println("Please enter admin password for Makler:");
                     String password = FormUtil.readString("Password");
                     if (password.equals(PW)) {
-                        MaklerMenu.showMaklerMenu();
+                        EstateAgentMenu.showMenu();
                     } else {
                         System.err.println("Wrong password.");
                     }
@@ -42,10 +42,10 @@ public class MainMenu {
                     System.out.println("Please login to Estate Management services:");
                     String login = FormUtil.readString("Login");
                     String password1 = FormUtil.readString("Password");
-                    Makler makler = Makler.login(login, password1);
+                    EstateAgent estateAgent = EstateAgent.login(login, password1);
 
-                    if (makler != null) {
-                        new EstateMenu(makler).showEstateMenu();
+                    if (estateAgent != null) {
+                        new EstateMenu(estateAgent).showEstateMenu();
                     } else {
                         System.out.println("Wrong login info");
                     }

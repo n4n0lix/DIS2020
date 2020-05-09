@@ -4,14 +4,14 @@ import de.dis.FormUtil;
 import de.dis.Menu;
 import de.dis.data.Apartment;
 import de.dis.data.House;
-import de.dis.data.Makler;
+import de.dis.data.EstateAgent;
 
 public class EstateMenu {
 
-    private Makler makler;
+    private EstateAgent estateAgent;
 
-    public EstateMenu(Makler makler) {
-        this.makler = makler;
+    public EstateMenu(EstateAgent estateAgent) {
+        this.estateAgent = estateAgent;
     }
 
     public void showEstateMenu() {
@@ -65,7 +65,7 @@ public class EstateMenu {
 
     public void newHouse() {
         House house = new House();
-        house.update(makler.getId());
+        house.update(estateAgent.getId());
         house.save();
 
         System.out.println(house.toString());
@@ -81,7 +81,7 @@ public class EstateMenu {
             System.out.println(house.toString());
             System.out.println("Update information: ");
 
-            house.update(makler.getId());
+            house.update(estateAgent.getId());
             house.save();
             System.out.println(house.toString());
         }
@@ -102,7 +102,7 @@ public class EstateMenu {
         // TODO Auto-generated method stub
         Apartment apartment = new Apartment();
 
-        apartment.update(makler.getId());
+        apartment.update(estateAgent.getId());
         apartment.save();
 
         System.out.println("Apartment with the id " + apartment.getId() + " was created.");
@@ -122,7 +122,7 @@ public class EstateMenu {
 
             System.out.println("Enter the new values:");
 
-            apartment.update(makler.getId());
+            apartment.update(estateAgent.getId());
             apartment.save();
 
             System.out.println("Apartment id " + apartment.getId() + " is changed.");

@@ -6,8 +6,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import de.dis.data.DBConnectionManager;
-
 /**
  * Makler-Bean
  *
@@ -18,7 +16,7 @@ import de.dis.data.DBConnectionManager;
  * login varchar(40) UNIQUE,
  * password varchar(40));
  */
-public class Makler {
+public class EstateAgent {
 	private int id = -1;
 	private String name;
 	private String address;
@@ -73,20 +71,20 @@ public class Makler {
 	 * @param id ID des zu ladenden Maklers
 	 * @return Makler-Instanz
 	 */
-	public static Makler load(int id) {
+	public static EstateAgent load(int id) {
 		try {
 			// Hole Verbindung			Get connected
 			Connection con = DBConnectionManager.getInstance().getConnection();
 
 			// Erzeuge Anfrage			Create request
-			String selectSQL = "SELECT * FROM maklers WHERE id = ?";
+			String selectSQL = "SELECT * FROM estate_agent WHERE id = ?";
 			PreparedStatement pstmt = con.prepareStatement(selectSQL);
 			pstmt.setInt(1, id);
 
 			// Führe Anfrage aus			Execute request
 			ResultSet rs = pstmt.executeQuery();
 			if (rs.next()) {
-				Makler ts = new Makler();
+				EstateAgent ts = new EstateAgent();
 				ts.setId(id);
 				ts.setName(rs.getString("name"));
 				ts.setAddress(rs.getString("address"));
@@ -123,7 +121,7 @@ public class Makler {
 				// damit spC$ter generierte IDs zurC<ckgeliefert werden!
 				// Attention, here a parameter is given,
 				// so that later generated IDs are returned!
-				String insertSQL = "INSERT INTO maklers(name, address, login, password) VALUES (?, ?, ?, ?)";
+				String insertSQL = "INSERT INTO estate_agent(name, address, login, password) VALUES (?, ?, ?, ?)";
 
 				PreparedStatement pstmt = con.prepareStatement(insertSQL,
 						Statement.RETURN_GENERATED_KEYS);
@@ -148,7 +146,7 @@ public class Makler {
 			} else {
 				// Falls schon eine ID vorhanden ist, mache ein Update...
 				// If an ID already exists, make an update ...
-				String updateSQL = "UPDATE maklers SET name = ?, address = ?, login = ?, password = ? WHERE id = ?";
+				String updateSQL = "UPDATE estate_agent SET name = ?, address = ?, login = ?, password = ? WHERE id = ?";
 				PreparedStatement pstmt = con.prepareStatement(updateSQL);
 
 				// Setze Anfrage Parameter
@@ -168,7 +166,7 @@ public class Makler {
 	}
 
 	public static boolean delete(int id) {
-		String sql = "DELETE FROM maklers WHERE id = ?";
+		String sql = "DELETE FROM estate_agent WHERE id = ?";
 
 		try {
 			Connection conn = DBConnectionManager.getInstance().getConnection();
@@ -187,9 +185,9 @@ public class Makler {
 
 	}
 
-	public static Makler login(String login, String password) {
+	public static EstateAgent login(String login, String password) {
 
-		String sql = "SELECT * FROM maklers WHERE login = ?";
+		String sql = "SELECT * FROM estate_agent WHERE login = ?";
 
 		try {
 			Connection con = DBConnectionManager.getInstance().getConnection();
@@ -199,19 +197,19 @@ public class Makler {
 
 			ResultSet rs = preparedStatement.executeQuery();
 			if (rs.next()) {
-				Makler makler = new Makler();
+				EstateAgent estateAgent = new EstateAgent();
 
-				makler.setId(rs.getInt("id"));
-				makler.setName(rs.getString("name"));
-				makler.setAddress(rs.getString("address"));
-				makler.setLogin(login);
-				makler.setPassword(rs.getString("password"));
+				estateAgent.setId(rs.getInt("id"));
+				estateAgent.setName(rs.getString("name"));
+				estateAgent.setAddress(rs.getString("address"));
+				estateAgent.setLogin(login);
+				estateAgent.setPassword(rs.getString("password"));
 
 				rs.close();
 				preparedStatement.close();
 
-				if (password.equals(makler.getPassword())) {
-					return makler;
+				if (password.equals(estateAgent.getPassword())) {
+					return estateAgent;
 				}
 			}
 

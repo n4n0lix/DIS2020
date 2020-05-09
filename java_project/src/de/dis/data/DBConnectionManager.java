@@ -32,31 +32,36 @@ public class DBConnectionManager {
         try {
             // Holen der Einstellungen aus der db.properties Datei
             Properties properties = new Properties();
-            URL url = ClassLoader.getSystemResource("db.properties");
-            FileInputStream stream = new FileInputStream(new File(url.toURI()));
+//            URL url = ClassLoader.getSystemResource("/db.properties");
+//            FileInputStream stream = new FileInputStream(new File(url.toURI()));
+            var stream = new FileInputStream("./db.properties");
             properties.load(stream);
             stream.close();
 
             String jdbcUser = properties.getProperty("jdbc_user");
             String jdbcPass = properties.getProperty("jdbc_pass");
-            String jdbcUrl = properties.getProperty("jdbc_url");
+            String jdbcUrl  = properties.getProperty("jdbc_url");
+            String schema   = properties.getProperty("schema");
 
             // Verbindung zur DB herstellen
-            Class.forName("com.ibm.db.jcc.DBDriver");
+            //Class.forName("com.ibm.db.jcc.DBDriver");
             _con = DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPass);
-
+            _con.setSchema(schema);
 
         } catch (FileNotFoundException e1) {
             e1.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (URISyntaxException e) {
+        }
+//        catch (ClassNotFoundException e) {
+//            e.printStackTrace();
+//        }
+        catch (SQLException e) {
             e.printStackTrace();
         }
+//        catch (URISyntaxException e) {
+//            e.printStackTrace();
+//        }
 
     }
 

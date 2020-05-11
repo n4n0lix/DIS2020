@@ -61,7 +61,7 @@ public class Contract {
 
                 Contract contract = new Contract();
                 contract.setId(id);
-                contract.setContractDate(rs.getDate("contract_date"));
+                contract.setContractDate(rs.getDate("date"));
                 contract.setPlace(rs.getString("place"));
                 contract.setPersonId(rs.getInt("fk_person_id"));
 
@@ -82,7 +82,7 @@ public class Contract {
 
         try {
             if (getId() == -1) {
-                String sql = "INSERT INTO contracts(contract_date, place, fk_person_id) VALUES (?, ?, ?)";
+                String sql = "INSERT INTO contracts(\"date\", place, fk_person_id) VALUES (?, ?, ?)";
 
                 PreparedStatement pstmt = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
@@ -102,7 +102,7 @@ public class Contract {
                 rs.close();
                 pstmt.close();
             } else {
-                String updateSQL = "UPDATE contracts SET contract_date = ?, place = ?, fk_person_id = ? WHERE id = ?";
+                String updateSQL = "UPDATE contracts SET \"date\" = ?, place = ?, fk_person_id = ? WHERE id = ?";
                 PreparedStatement pstmt = con.prepareStatement(updateSQL);
 
                 pstmt.setDate(1, getContractDate());

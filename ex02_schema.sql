@@ -25,7 +25,9 @@ CREATE TABLE estatesmgmt.contracts (
 	id serial NOT NULL,
 	"date" date NOT NULL,
 	place varchar NOT NULL,
-	CONSTRAINT contract_pk PRIMARY KEY (id)
+	fk_person_id int4 NOT NULL,
+	CONSTRAINT contract_pk PRIMARY KEY (id),
+	CONSTRAINT contracts_fk FOREIGN KEY (fk_person_id) REFERENCES estatesmgmt.persons(id)
 );
 
 -- Drop table
@@ -78,7 +80,7 @@ CREATE TABLE estatesmgmt.houses (
 CREATE TABLE estatesmgmt.persons (
 	id serial NOT NULL,
 	first_name varchar NOT NULL,
-	"name" varchar NOT NULL,
+	last_name varchar NOT NULL,
 	address varchar NOT NULL,
 	CONSTRAINT person_pk PRIMARY KEY (id)
 );
@@ -88,11 +90,13 @@ CREATE TABLE estatesmgmt.persons (
 -- DROP TABLE estatesmgmt.purchase_contracts;
 
 CREATE TABLE estatesmgmt.purchase_contracts (
-	installments_no int4 NOT NULL DEFAULT 1,
+	number_of_installment int4 NOT NULL DEFAULT 1,
 	interest_rate float4 NULL,
-	contract_id int4 NOT NULL,
-	CONSTRAINT purchase_contract_pk PRIMARY KEY (contract_id),
-	CONSTRAINT purchase_contract_fk FOREIGN KEY (contract_id) REFERENCES estatesmgmt.contracts(id) ON DELETE CASCADE
+	fk_contract_id int4 NOT NULL,
+	fk_house_id int4 NOT NULL,
+	CONSTRAINT purchase_contract_pk PRIMARY KEY (fk_contract_id),
+	CONSTRAINT fk_houses FOREIGN KEY (fk_house_id) REFERENCES estatesmgmt.houses(fk_estate_id),
+	CONSTRAINT purchase_contract_fk FOREIGN KEY (fk_contract_id) REFERENCES estatesmgmt.contracts(id) ON DELETE CASCADE
 );
 
 -- Drop table
@@ -113,29 +117,15 @@ CREATE TABLE estatesmgmt.rents (
 
 -- Drop table
 
--- DROP TABLE estatesmgmt.sells;
-
-CREATE TABLE estatesmgmt.sells (
-	person_id int4 NOT NULL,
-	house_id int4 NOT NULL,
-	purchase_contract_id int4 NOT NULL,
-	CONSTRAINT sells_house_1 UNIQUE (house_id),
-	CONSTRAINT sells_pk PRIMARY KEY (purchase_contract_id, house_id, person_id),
-	CONSTRAINT sells_purchase_contract_1 UNIQUE (purchase_contract_id),
-	CONSTRAINT sells_fk FOREIGN KEY (house_id) REFERENCES estatesmgmt.houses(fk_estate_id),
-	CONSTRAINT sells_fk_person FOREIGN KEY (person_id) REFERENCES estatesmgmt.persons(id),
-	CONSTRAINT sells_fk_purchase_contract FOREIGN KEY (purchase_contract_id) REFERENCES estatesmgmt.purchase_contracts(contract_id)
-);
-
--- Drop table
-
 -- DROP TABLE estatesmgmt.tenancy_contracts;
 
 CREATE TABLE estatesmgmt.tenancy_contracts (
 	start_date date NOT NULL DEFAULT CURRENT_DATE,
 	duration interval NOT NULL,
-	additional_costs float4 NOT NULL DEFAULT 0,
-	contract_id int4 NOT NULL,
-	CONSTRAINT tenancy_contract_pk PRIMARY KEY (contract_id),
-	CONSTRAINT tenancy_contract_fk FOREIGN KEY (contract_id) REFERENCES estatesmgmt.contracts(id) ON DELETE CASCADE
+	additional_cost float4 NOT NULL DEFAULT 0,
+	fk_contract_id int4 NOT NULL,
+	fk_apartment_id int4 NOT NULL,
+	CONSTRAINT tenancy_contract_pk PRIMARY KEY (fk_contract_id),
+	CONSTRAINT fk_apartment_id FOREIGN KEY (fk_apartment_id) REFERENCES estatesmgmt.apartments(fk_estate_id),
+	CONSTRAINT tenancy_contract_fk FOREIGN KEY (fk_contract_id) REFERENCES estatesmgmt.contracts(id) ON DELETE CASCADE
 );

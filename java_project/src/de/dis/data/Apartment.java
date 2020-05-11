@@ -76,7 +76,7 @@ public class Apartment extends Estate {
                 apartment.setStreetNumber(estate.getStreetNumber());
                 apartment.setSquareArea(estate.getSquareArea());
 
-                apartment.setFloor(rs.getInt("number_of_floors"));
+                apartment.setFloor(rs.getInt("floor"));
                 apartment.setRent(rs.getDouble("rent"));
                 apartment.setRoom(rs.getInt("room"));
                 apartment.setBalcony(rs.getBoolean("balcony"));

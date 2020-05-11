@@ -77,7 +77,7 @@ public class EstateAgent {
 			Connection con = DBConnectionManager.getInstance().getConnection();
 
 			// Erzeuge Anfrage			Create request
-			String selectSQL = "SELECT * FROM estate_agent WHERE id = ?";
+			String selectSQL = "SELECT * FROM estate_agents WHERE id = ?";
 			PreparedStatement pstmt = con.prepareStatement(selectSQL);
 			pstmt.setInt(1, id);
 
@@ -121,7 +121,7 @@ public class EstateAgent {
 				// damit spC$ter generierte IDs zurC<ckgeliefert werden!
 				// Attention, here a parameter is given,
 				// so that later generated IDs are returned!
-				String insertSQL = "INSERT INTO estate_agent(name, address, login, password) VALUES (?, ?, ?, ?)";
+				String insertSQL = "INSERT INTO estate_agents(name, address, login, password) VALUES (?, ?, ?, ?)";
 
 				PreparedStatement pstmt = con.prepareStatement(insertSQL,
 						Statement.RETURN_GENERATED_KEYS);
@@ -138,7 +138,7 @@ public class EstateAgent {
 				// Get the id of the tight set
 				ResultSet rs = pstmt.getGeneratedKeys();
 				if (rs.next()) {
-					setId(rs.getInt(1));
+					setId(rs.getInt("id"));
 				}
 
 				rs.close();
@@ -146,7 +146,7 @@ public class EstateAgent {
 			} else {
 				// Falls schon eine ID vorhanden ist, mache ein Update...
 				// If an ID already exists, make an update ...
-				String updateSQL = "UPDATE estate_agent SET name = ?, address = ?, login = ?, password = ? WHERE id = ?";
+				String updateSQL = "UPDATE estate_agents SET name = ?, address = ?, login = ?, password = ? WHERE id = ?";
 				PreparedStatement pstmt = con.prepareStatement(updateSQL);
 
 				// Setze Anfrage Parameter
@@ -166,7 +166,7 @@ public class EstateAgent {
 	}
 
 	public static boolean delete(int id) {
-		String sql = "DELETE FROM estate_agent WHERE id = ?";
+		String sql = "DELETE FROM estate_agents WHERE id = ?";
 
 		try {
 			Connection conn = DBConnectionManager.getInstance().getConnection();
@@ -187,7 +187,7 @@ public class EstateAgent {
 
 	public static EstateAgent login(String login, String password) {
 
-		String sql = "SELECT * FROM estate_agent WHERE login = ?";
+		String sql = "SELECT * FROM estate_agents WHERE login = ?";
 
 		try {
 			Connection con = DBConnectionManager.getInstance().getConnection();

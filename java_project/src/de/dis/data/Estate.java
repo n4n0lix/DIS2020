@@ -68,7 +68,7 @@ public class Estate {
         return fkMaklerId;
     }
 
-    public void setFkMaklerId(int fkMaklerId) {
+    public void setEstateAgentId(int fkMaklerId) {
         this.fkMaklerId = fkMaklerId;
     }
 
@@ -76,7 +76,8 @@ public class Estate {
         try {
             Connection con = DBConnectionManager.getInstance().getConnection();
 
-            String selectSQL = "SELECT * FROM estates WHERE id = ?";
+            String selectSQL =
+                    "SELECT * FROM estates WHERE id = ?";
             PreparedStatement pstmt = con.prepareStatement(selectSQL);
             pstmt.setInt(1, id);
 
@@ -89,7 +90,7 @@ public class Estate {
                 estate.setStreet(rs.getString("street"));
                 estate.setStreetNumber(rs.getInt("street_number"));
                 estate.setSquareArea(rs.getDouble("square_area"));
-                estate.setFkMaklerId(rs.getInt("fk_makler_id"));
+                estate.setEstateAgentId(rs.getInt("fk_estate_agent_id"));
 
                 rs.close();
                 pstmt.close();
@@ -107,7 +108,7 @@ public class Estate {
 
         try {
             if (getId() == -1) {
-                String insertSQL = "INSERT INTO estates(city, postal_code, street, street_number, square_area, fk_makler_id) VALUES (?, ?, ?, ?, ?, ?)";
+                String insertSQL = "INSERT INTO estates(city, postal_code, street, street_number, square_area, fk_estate_agent_id) VALUES (?, ?, ?, ?, ?, ?)";
 
                 PreparedStatement pstmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS);
 
@@ -130,7 +131,7 @@ public class Estate {
                 pstmt.close();
 
             } else {
-                String updateSQL = "UPDATE estates SET city = ?, postal_code = ?, street = ?, street_number = ?, square_area = ?, fk_makler_id = ? where id = ?";
+                String updateSQL = "UPDATE estates SET city = ?, postal_code = ?, street = ?, street_number = ?, square_area = ?, fk_estate_agent_id = ? where id = ?";
                 PreparedStatement pstmt = con.prepareStatement(updateSQL);
 
                 pstmt.setString(1, getCity());
@@ -182,7 +183,7 @@ public class Estate {
     }
 
     public void update(int estateAgentId) {
-        setFkMaklerId(estateAgentId);
+        setEstateAgentId(estateAgentId);
         setCity(FormUtil.readString("City"));
         setPostalCode(FormUtil.readInt("Postal Code"));
         setStreet(FormUtil.readString("Street"));

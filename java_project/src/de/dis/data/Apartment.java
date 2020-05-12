@@ -103,7 +103,7 @@ public class Apartment extends Estate {
 
                 PreparedStatement pstmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS);
 
-                pstmt.setInt(1, getFkMaklerId());
+                pstmt.setInt(1, getId());
                 pstmt.setInt(2, getFloor());
                 pstmt.setDouble(3, getRent());
                 pstmt.setInt(4, getRoom());

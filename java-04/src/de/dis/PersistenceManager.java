@@ -1,10 +1,7 @@
 package de.dis;
 
 import java.io.*;
-import java.util.Comparator;
-import java.util.Hashtable;
-import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,20 +24,11 @@ public class PersistenceManager {
    * @return The transaction id
    */
   public int BeginTransaction() {
-    // #1 Create new transaction
-    int id =  NewTransactionId();
-    m_Buffers.put(id, new TransactionBuffer((id)));
-
-    // #2 Try to shrink buffers
-    int shrinkThreshold = 5;
-    if (m_Buffers.size() > shrinkThreshold) {
-      m_Buffers.entrySet().removeIf(entry -> entry.getValue().IsCommitted());
-    }
-
-    // #3 Artificial delay
+    // #1 Artificial delay
     Delay();
 
-    return id;
+    // #2 Create new transaction
+    return NewTransactionId();
   }
 
   /**
@@ -55,17 +43,31 @@ public class PersistenceManager {
     // #1 Logging
     int lsn = LogWrite(pTransactionId, pPageId, pData);
 
-    // #2 Get transaction buffer
-    TransactionBuffer buffer = m_Buffers.get(pTransactionId);
+    // #2 Construct write operation
+    var newWriteOp = new WriteOperation();
+    newWriteOp.PageId = pPageId;
+    newWriteOp.LSN = lsn;
+    newWriteOp.TransactionId = pTransactionId;
+    newWriteOp.Data = pData;
 
-    if (buffer == null)
-      throw new IllegalArgumentException("No transaction-buffer found for id: " + pTransactionId +". You have to " +
-          "begin a new transaction with BeginTransaction() before writing.");
+    // #3 Write into buffer
+    m_Buffer.put(pPageId, newWriteOp);
 
-    // #3 Write buffer changes
-    buffer.Write(pPageId, lsn, pData);
+    // #4 Try to shrink buffer and persist changes
+    if (m_Buffer.size() > 5) {
+      synchronized (m_Buffer) {
+        System.out.println("Attempting to shrink buffer and persist changes ...");
 
-    // #4 Artificial delay
+        List<WriteOperation> writeOps = new ArrayList<>(m_Buffer.values());
+        for(var writeOp : writeOps)
+          if (m_CommittedTransactions.contains(writeOp.TransactionId)) {
+            Persist(writeOp);
+            m_Buffer.remove(writeOp.PageId);
+          }
+      }
+    }
+
+    // #5 Artificial delay
     Delay();
   }
 
@@ -80,28 +82,20 @@ public class PersistenceManager {
     LogEoT(pTransactionId);
 
     // #2 Get transaction buffer
-    TransactionBuffer buffer = m_Buffers.get(pTransactionId);
+    m_CommittedTransactions.add(pTransactionId);
 
-    if (buffer == null)
-      throw new IllegalArgumentException("No transaction-buffer found for id: " + pTransactionId +". You have to " +
-          "begin a new transaction with BeginTransaction() before writing.");
-
-    // #3 Persist transaction
-    for (var bufferEntry : buffer.getReadOnlyBuffer().entrySet()) {
-      int pageId = bufferEntry.getKey();
-      TransactionBuffer.WriteData writeData = bufferEntry.getValue();
-      Persist(pageId, writeData.LSN, writeData.Data);
-    }
+    // #3 Artificial delay
+    Delay();
   }
 
-  private void Persist(int pPageId, int pLSN, String pData) throws IOException {
+  private void Persist(WriteOperation pWriteOp) throws IOException {
     // #1 Get handle of page file
-    File pageFile = new File(String.valueOf(pPageId));
+    File pageFile = new File(String.valueOf(pWriteOp.PageId));
     pageFile.createNewFile(); // This only creates a new file IF the file didn't exists yet
 
     // #2 Persist data
     try (FileWriter writer = new FileWriter(pageFile)) {
-      writer.write(String.valueOf(pLSN) + "," + pData);
+      writer.write(String.valueOf(pWriteOp.LSN) + "," + pWriteOp.Data);
     }
 
     // #3 Artificial delay
@@ -186,7 +180,6 @@ public class PersistenceManager {
       writer.flush();
     }
   }
-
   //</editor-fold>
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -194,6 +187,35 @@ public class PersistenceManager {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
   //<editor-fold desc="Recovery">
+  private void RecoverPage(int pPageId, PriorityQueue<LogEntry> pLogs) {
+    // #1 Filter logs to given pageId
+    PriorityQueue<LogEntry> pageLogs = new PriorityQueue<>(pLogs);
+    pageLogs.removeIf(logEntry -> logEntry.PageId != pPageId);
+
+    // #2 Analyse page status (find current LSN and status)
+    int currentLSN = -1;
+    String currentData = null;
+    File pageFile = new File(String.valueOf(pPageId));
+
+    // #2.1 Read file if exists
+    if (pageFile.exists()) {
+      try (FileReader fr = new FileReader(pageFile);
+           BufferedReader reader = new BufferedReader(fr)) {
+
+        String[] data = reader.readLine().split(",");
+        currentLSN = Integer.parseInt(data[0]);
+        currentData = data[1];
+
+      } catch (Exception e) {
+        System.err.println("couldn't determine page status, assuming to be empty");
+        currentLSN = -1;
+        currentData = null;
+      }
+    }
+
+    // #3 Start the redo recovery
+  }
+
   /**
    * Attempts a redo recovery.
    * @throws IOException If writing or committing failed. This is a critical failure.
@@ -235,7 +257,7 @@ public class PersistenceManager {
       // #2 Discard invalid transactions
       // We could keep them and hope the clients are trying to finish them, but I
       // don't see how any client would try to do that
-      m_Buffers.clear();
+      m_Buffer.clear();
     }
   }
   //</editor-fold>
@@ -250,7 +272,8 @@ public class PersistenceManager {
 
   // Transactions
   private final AtomicInteger m_LastTransactionId;
-  private final ConcurrentHashMap<Integer, TransactionBuffer> m_Buffers;
+  private final Map<Integer, WriteOperation> m_Buffer; // Key: PageId
+  private final Set<Integer> m_CommittedTransactions; // Key: TransactionId
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   //                      Helper                       //
@@ -270,6 +293,13 @@ public class PersistenceManager {
     Wait(ThreadLocalRandom.current().nextInt(minDelay,maxDelay));
   }
 
+  public static class WriteOperation {
+    public int PageId;
+    public int LSN;
+    public int TransactionId;
+    public String Data;
+  }
+
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   //                     Singleton                     //
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -286,8 +316,9 @@ public class PersistenceManager {
   private PersistenceManager() {
     // #1 Initialize
     m_LastTransactionId = new AtomicInteger(0);
-    m_Buffers = new ConcurrentHashMap<>();
+    m_Buffer = new ConcurrentHashMap<>();
     m_LastLSN = new AtomicInteger(-1);
+    m_CommittedTransactions = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
 
     // #2 Recovery & Logging
     m_BackupLogFile = new File(BACKUP_FILE);

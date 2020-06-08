@@ -13,6 +13,7 @@ public class Client {
     // #1 Execute transaction in a new thread
     THREAD_POOL.submit(() -> {
       pTransaction.accept(m_PersistenceManager);
+      System.out.println("client finished");
     });
   }
 
@@ -36,6 +37,7 @@ public class Client {
     if (pPersistenceManager == null) return null;
 
     // #2 Create instance
+    System.out.println("new client started ...");
     return new Client(pPersistenceManager);
   }
 

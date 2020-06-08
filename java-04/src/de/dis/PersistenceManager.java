@@ -1,10 +1,10 @@
 package de.dis;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,6 +12,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A persistence manager that accepts and performs transactions.
  */
 public class PersistenceManager {
+
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+  //              Transactions                 //
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+  //<editor-fold desc="Transactions">
+  private int NewTransactionId() {
+    return m_LastTransactionId.incrementAndGet();
+  }
 
   /**
    * Begins a new transaction and returns the transactions id. Use this id for writing and commiting.
@@ -44,7 +53,7 @@ public class PersistenceManager {
    */
   public void Write(int pTransactionId, int pPageId, String pData) throws IllegalArgumentException, IOException {
     // #1 Logging
-    m_Logger.LogWrite(pTransactionId, pPageId, pData);
+    int lsn = LogWrite(pTransactionId, pPageId, pData);
 
     // #2 Get transaction buffer
     TransactionBuffer buffer = m_Buffers.get(pTransactionId);
@@ -54,7 +63,7 @@ public class PersistenceManager {
           "begin a new transaction with BeginTransaction() before writing.");
 
     // #3 Write buffer changes
-    buffer.Write(pPageId, pData);
+    buffer.Write(pPageId, lsn, pData);
 
     // #4 Artificial delay
     Delay();
@@ -68,7 +77,7 @@ public class PersistenceManager {
    */
   public void Commit(int pTransactionId) throws IllegalArgumentException, IOException {
     // #1 Logging
-    m_Logger.LogEoT(pTransactionId);
+    LogEoT(pTransactionId);
 
     // #2 Get transaction buffer
     TransactionBuffer buffer = m_Buffers.get(pTransactionId);
@@ -80,68 +89,147 @@ public class PersistenceManager {
     // #3 Persist transaction
     for (var bufferEntry : buffer.getReadOnlyBuffer().entrySet()) {
       int pageId = bufferEntry.getKey();
-      String data = bufferEntry.getValue();
-      Persist(pageId, data);
+      TransactionBuffer.WriteData writeData = bufferEntry.getValue();
+      Persist(pageId, writeData.LSN, writeData.Data);
     }
   }
 
-  public static void Shutdown() {
-    try {
-      Get().m_Logger.Close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    INSTANCE = null;
-  }
-
-  private void Persist(int pPageId, String pData) throws IOException {
-    System.out.println("persisting => [" + pPageId + "] : " + pData);
-
+  private void Persist(int pPageId, int pLSN, String pData) throws IOException {
     // #1 Get handle of page file
     File pageFile = new File(String.valueOf(pPageId));
     pageFile.createNewFile(); // This only creates a new file IF the file didn't exists yet
 
     // #2 Persist data
     try (FileWriter writer = new FileWriter(pageFile)) {
-      writer.write(pData);
+      writer.write(String.valueOf(pLSN) + "," + pData);
     }
 
     // #3 Artificial delay
     Delay();
   }
+  //</editor-fold>
 
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+  //                 Logging                   //
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+  //<editor-fold desc="Logging">
+  private void BackupAndCreateNewLogFile() throws IOException {
+    // Rename old `persistence.log` to `backup.log`
+    if (m_LogFile.exists()) {
+      m_LogFile.renameTo(m_BackupLogFile);
+    }
+
+    m_LogFile.createNewFile(); // Create new `persistence.log`
+  }
+
+  /**
+   * Writes a user-data change to the page by the given page-id.
+   * @param pTransactionId The transaction id
+   * @param pPageId The page to write to
+   * @param pData The user data
+   * @return The LSN
+   * @throws IOException
+   */
+  public int LogWrite(int pTransactionId, int pPageId, String pData) throws IOException {
+    // #1 Create new log entry
+    LogEntry logEntry = new LogEntry();
+    logEntry.LSN = m_LastLSN.incrementAndGet();
+    logEntry.TransactionId = pTransactionId;
+    logEntry.IsEoT = false;
+
+    logEntry.PageId = pPageId;
+    logEntry.Data = pData;
+
+    // #2 Persist log entry
+    PersistLogEntry(logEntry);
+
+    // #3 Return LSN
+    return logEntry.LSN;
+  }
+
+  public void LogEoT(int pTransactionId) throws IOException {
+    // #1 Create new log entry
+    LogEntry logEntry = new LogEntry();
+    logEntry.LSN = m_LastLSN.incrementAndGet();
+    logEntry.TransactionId = pTransactionId;
+    logEntry.IsEoT = true;
+
+    logEntry.PageId = null;
+    logEntry.Data = null;
+
+    // #2 Persist log entry
+    PersistLogEntry(logEntry);
+  }
+
+  private PriorityQueue<LogEntry> GetAllLogEntries() throws IOException {
+    // #1 Make sure log file exists
+    File logFile = new File(LOG_FILE);
+    logFile.createNewFile();
+
+    // #2 Read all entries
+    PriorityQueue<LogEntry> result = new PriorityQueue<LogEntry>(Comparator.comparingInt(o -> o.LSN));
+    try(FileReader fr = new FileReader(logFile);
+        BufferedReader reader = new BufferedReader(fr)) {
+
+      var entry = LogEntry.FromString(reader.readLine());
+      if (entry != null)
+        result.add(entry);
+    }
+
+    return result;
+  }
+
+  private synchronized void PersistLogEntry(LogEntry pLogEntry) throws IOException {
+    try(FileWriter writer = new FileWriter(m_LogFile, true)) {
+      writer.write(pLogEntry.toString() + "\n");
+      writer.flush();
+    }
+  }
+
+  //</editor-fold>
+
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+  //                 Recovery                  //
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+  //<editor-fold desc="Recovery">
   /**
    * Attempts a redo recovery.
    * @throws IOException If writing or committing failed. This is a critical failure.
    */
-  private void RedoRecovery() throws IOException {
-    System.out.println("performing redo recovery ...");
+  private void Recovery() throws IOException {
+    System.out.println("performing recovery ...");
+
+    if (!m_BackupLogFile.exists()) {
+      System.out.println("No backup log file found, skipping recovery");
+      return;
+    }
 
     // #1 Replay open transactions
     // This is used to map old transaction ids to new transaction ids
     Map<Integer,Integer> transactionIdMapping = new Hashtable<>();
-    for(Logger.Entry anEntry : m_Logger.GetAllLogEntries()) {
+    for(LogEntry anLogEntry : GetAllLogEntries()) {
 
       // #1.1 Begin a new transaction if none exists yet
       int newId;
       // No new transaction exists for this old transaction yet
-      if (transactionIdMapping.containsKey(anEntry.TransactionId)) {
+      if (!transactionIdMapping.containsKey(anLogEntry.TransactionId)) {
         newId = BeginTransaction();
-        transactionIdMapping.put(anEntry.TransactionId, newId);
+        transactionIdMapping.put(anLogEntry.TransactionId, newId);
       }
       // We already began a transaction
       else {
-        newId = transactionIdMapping.get(anEntry.TransactionId);
+        newId = transactionIdMapping.get(anLogEntry.TransactionId);
       }
 
       // #1.2 Replay the operation
-      if (!anEntry.IsEoT) {
-        Write(newId, anEntry.PageId, anEntry.Data);
+      if (!anLogEntry.IsEoT) {
+        Write(newId, anLogEntry.PageId, anLogEntry.Data);
       }
       else {
         Commit(newId);
-        System.out.println("restored transaction ["+anEntry.TransactionId+"] successfully!");
+        System.out.println("restored transaction ["+ anLogEntry.TransactionId+"] successfully!");
       }
 
       // #2 Discard invalid transactions
@@ -150,21 +238,22 @@ public class PersistenceManager {
       m_Buffers.clear();
     }
   }
-
-  private int NewTransactionId() {
-    return m_LastTransactionId.incrementAndGet();
-  }
-
+  //</editor-fold>
 
   // Logging & Recovery
-  private Logger m_Logger;
+  private        final AtomicInteger m_LastLSN;
+  private        final File          m_BackupLogFile;
+  private        final File          m_LogFile;
+
+  private static final String        LOG_FILE = "persistence.log";
+  private static final String        BACKUP_FILE = "backup.log";
 
   // Transactions
-  private AtomicInteger m_LastTransactionId;
-  private ConcurrentHashMap<Integer, TransactionBuffer> m_Buffers;
+  private final AtomicInteger m_LastTransactionId;
+  private final ConcurrentHashMap<Integer, TransactionBuffer> m_Buffers;
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-  //                      Helper                      //
+  //                      Helper                       //
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
   private void Wait(int pMSec) {
@@ -198,19 +287,22 @@ public class PersistenceManager {
     // #1 Initialize
     m_LastTransactionId = new AtomicInteger(0);
     m_Buffers = new ConcurrentHashMap<>();
+    m_LastLSN = new AtomicInteger(-1);
 
-    // #2 Setup Logger
-    m_Logger = new Logger();
+    // #2 Recovery & Logging
+    m_BackupLogFile = new File(BACKUP_FILE);
+    m_LogFile = new File(LOG_FILE);
+
+    System.out.println("starting recovery...");
     try {
-      // #2.1 Do Recovery
-      RedoRecovery();
-
-      // #2.2 Start for normal logging
-      m_Logger.Start();
+      BackupAndCreateNewLogFile();
+      Recovery();
     } catch (Exception e) {
       System.err.println("recovery failed with exception: " + e.getMessage());
-      e.printStackTrace();
       System.exit(1);
     }
+    System.out.println("recovery finished");
+
+    System.out.println("started persistence-manager");
   }
 }

@@ -12,7 +12,7 @@
 \usepackage{listings}
 \lstset{language=SQL}
 
-\title{Exercise 3 Report}
+\title{Exercise 4 Report}
 \subtitle{Gruppe 16}
 \author{Anastasiia Rubanovych\and Sebastian Funck}
 \date{\today}
@@ -21,17 +21,16 @@
 
 \maketitle
 
-\section*{3.1 Isolation Levels and SQL}
 \subsection*{a)}
 \begin{itemize}
-	\item \textbf{How can you determine the currently set isolation level?}\\
-	The default isolation level of a database is configured inside the \texttt{postgresql.conf} with the attribute \texttt{default\_transaction\_isolation}. It can be queried via \texttt{SHOW default\_transaction\_isolation}.
+	\item \textbf{Describe in your own words how the program works and how the persistence manager accom-
+		plishes logging and recovery.}\\
 	
-	\item \textbf{What is the default isolation level of PostgreSQL?}\\
-	The default isolation level of PostgreSQL is \texttt{read committed}.
-		
-	\item \textbf{How can the isolation level be changed during a session in PostgreSQL?}\\
-	\texttt{SET SESSION CHARACTERISTICS AS TRANSACTION \{ SERIALIZABLE | REPEATABLE READ | READ COMMITTED | READ UNCOMMITTED \}}
+	The persistance manager provides the interface to create transactions that modify an underlying data struture consisting of pages and user data. It is implemented as a Singleton so it has sole control over write and read operations on the respective pages and their content. For the user not visible are also a Logging and Recovery mechanism. 
+	
+	Logging is realized via a \texttt{Logger} inside the \texttt{PersitenceManager} that encapsulates log-writing operations. Before any transaction operation (begin, write or commit), the \texttt{PersitenceManager} ensures that this operation is written to a log, to enable recovery possibilities in case of a failure.
+	
+	The recovery is handled by the  \texttt{PersitenceManager} directly and is started on startup. TODO
 \end{itemize}
 
 \subsection*{b)}

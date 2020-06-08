@@ -6,6 +6,11 @@ import java.util.Map;
 
 public class TransactionBuffer {
 
+  public static class WriteData {
+    public int LSN;
+    public String Data;
+  }
+
   public TransactionBuffer(int pTransactionId) {
     m_Id = pTransactionId;
     m_Committed = false;
@@ -24,16 +29,20 @@ public class TransactionBuffer {
     return m_Committed;
   }
 
-  public void Write(Integer pPageId, String pData) {
-    m_Buffer.put(pPageId, pData);
+  public void Write(int pPageId, int pLSN, String pData) {
+    var userData = new WriteData();
+    userData.LSN = pLSN;
+    userData.Data = pData;
+
+    m_Buffer.put(pPageId, userData);
   }
 
-  public Map<Integer, String> getReadOnlyBuffer() {
+  public Map<Integer, WriteData> getReadOnlyBuffer() {
     return Collections.unmodifiableMap(m_Buffer);
   }
 
   private int m_Id;
   private boolean m_Committed;
-  private Hashtable<Integer, String> m_Buffer;
+  private Hashtable<Integer, WriteData> m_Buffer;
 
 }

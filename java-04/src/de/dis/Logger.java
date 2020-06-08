@@ -6,9 +6,21 @@ import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Logger {
-
   public Logger() {
+    // #1 Init
     m_LastLSN = new AtomicInteger(-1);
+  }
+
+  public void Start() throws IOException {
+    File logFile = new File(LOG_FILE);
+    logFile.createNewFile();
+
+    m_LogFileWriter = new FileWriter(logFile);
+  }
+
+  public void Close() throws IOException {
+    m_LogFileWriter.close();
+    m_LogFileWriter = null;
   }
 
   public void LogWrite(int pTransactionId, int pPageId, String pData) throws IOException {
@@ -39,114 +51,40 @@ public class Logger {
     PersistLogEntry(logEntry);
   }
 
-  public void DeleteLogs(int pTransactionId) {
-    // Delete all files associated with the transaction
-    for(var logFile : GetAllLogsForTransaction(pTransactionId))
-      logFile.delete();
-  }
+  public PriorityQueue<Entry> GetAllLogEntries() throws IOException {
+    if (m_LogFileWriter != null)
+      throw new IOException("Cannot read and write at the same time to logfile "+LOG_FILE);
 
-  public PriorityQueue<Entry> GetAllLogEntriesSorted() {
-    // Make sure the open log entries are provided in a sorted order
-    PriorityQueue<Entry> openTransactions = new PriorityQueue<>(new EntryLSNComparator());
+    // #1 Make sure log file exists
+    File logFile = new File(LOG_FILE);
+    logFile.createNewFile();
 
-    // Read all existing log files
-    for(var logFile : GetAllLogFiles()) {
-      var entry = ReadLogEntry(logFile);
-      openTransactions.add(entry);
-    }
-
-    return openTransactions;
-  }
-
-  private void PersistLogEntry(Entry pEntry) throws IOException {
-    System.out.println("logging => " + pEntry.toString());
-
-    String fileName = "" + pEntry.TransactionId + "_" + pEntry.LSN + ".log";
-    File fileEntry = new File(fileName);
-    fileEntry.createNewFile();
-
-    try(FileWriter writer = new FileWriter(fileEntry)) {
-      writer.write(pEntry.toString());
-    }
-  }
-
-  private AtomicInteger m_LastLSN;
-
-  private static String FILE_EXTENSION = ".log";
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-  //                      Helper                       //
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-
-  private static Entry ReadLogEntry(File pFile) {
-    // #1 Read content of entry file
-    String fileContent;
-    try(FileReader fr = new FileReader(pFile);
+    // #2 Read all entries
+    PriorityQueue<Entry> result = new PriorityQueue<>(new EntryLSNComparator());
+    try(FileReader fr = new FileReader(logFile);
         BufferedReader reader = new BufferedReader(fr)) {
 
-      fileContent = reader.readLine();
-
-    } catch (Exception e) {
-      e.printStackTrace();
-      return null;
-    }
-
-    // #2 Deserialize file entry
-    // #2.1 Strip string of unnecessary data
-    fileContent = fileContent.replace("{","")
-        .replace("}","")
-        .replace(" ","")
-        .replace("\n","")
-        .replace("\t","");
-
-    // #2.2 Deserialize string into entry
-    Entry result = new Entry();
-
-    for(var strProperty : fileContent.split(",")) {
-      String propName = strProperty.substring(0, strProperty.indexOf(":"));
-      String propValue = strProperty.substring(strProperty.indexOf(":")+1);
-
-      switch(propName) {
-        case "LSN":
-          result.LSN = Integer.valueOf(propValue);
-          break;
-        case "TransactionId":
-          result.TransactionId = Integer.valueOf(propValue);
-          break;
-        case "IsEoT":
-          result.IsEoT = Boolean.valueOf(propValue);
-          break;
-        case "PageId":
-          result.PageId = Integer.valueOf(propValue);
-          break;
-        case "Data":
-          result.Data = propValue;
-          break;
-      }
+      var entry = Entry.FromString(reader.readLine());
+      if (entry != null)
+        result.add(entry);
     }
 
     return result;
   }
 
-  private static File[] GetAllLogsForTransaction(int pTransactionId) {
-    return new File(".")
-        .listFiles(new FilenameFilter() {
-          @Override
-          public boolean accept(File dir, String name) {
-            return name.startsWith(String.valueOf(pTransactionId)) && name.endsWith(FILE_EXTENSION);
-          }
-        });
+  private synchronized void PersistLogEntry(Entry pEntry) throws IOException {
+    if (m_LogFileWriter == null)
+      throw new IOException("Cannot write to logfile "+LOG_FILE+" until Logger is started");
+
+    System.out.println("logging => " + pEntry.toString());
+    m_LogFileWriter.write(pEntry.toString() + "\n");
+    m_LogFileWriter.flush();
   }
 
-  private static File[] GetAllLogFiles() {
-    return new File(".")
-        .listFiles(new FilenameFilter() {
-          @Override
-          public boolean accept(File dir, String name) {
-            return name.endsWith(FILE_EXTENSION);
-          }
-        });
-  }
+  private              FileWriter    m_LogFileWriter;
+  private        final AtomicInteger m_LastLSN;
+
+  private static final String        LOG_FILE = "persistence.log";
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   //                 Internal Classes                  //
@@ -168,13 +106,46 @@ public class Logger {
     @Override
     public String toString() {
       StringBuilder s = new StringBuilder();
-      s.append("{ LSN :").append(LSN)
-          .append(", TransactionId :").append(TransactionId)
-          .append(", IsEoT :").append(IsEoT)
-          .append(", PageId :").append(PageId)
-          .append(", Data :").append(Data)
-          .append(" }");
+      s.append("LSN : ").append(LSN)
+          .append(", TransactionId : ").append(TransactionId)
+          .append(", IsEoT : ").append(IsEoT)
+          .append(", PageId : ").append(PageId)
+          .append(", Data : ").append(Data);
       return s.toString();
+    }
+
+    public static Entry FromString(String pStr) {
+      // #1 Check for invalid strings and cleanup the string
+      if (pStr == null || pStr.isEmpty())
+        return null;
+      
+      // #2.2 Deserialize string into entry
+      Entry result = new Entry();
+
+      for(var strProperty : pStr.split(",")) {
+        String propName = strProperty.substring(0, strProperty.indexOf(":"));
+        String propValue = strProperty.substring(strProperty.indexOf(":")+1);
+
+        switch(propName) {
+          case "LSN":
+            result.LSN = Integer.valueOf(propValue);
+            break;
+          case "TransactionId":
+            result.TransactionId = Integer.valueOf(propValue);
+            break;
+          case "IsEoT":
+            result.IsEoT = Boolean.valueOf(propValue);
+            break;
+          case "PageId":
+            result.PageId = Integer.valueOf(propValue);
+            break;
+          case "Data":
+            result.Data = propValue;
+            break;
+        }
+      }
+
+      return result;
     }
   }
 

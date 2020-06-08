@@ -2,6 +2,7 @@ package de.dis;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class Client {
@@ -21,8 +22,13 @@ public class Client {
 
   private static ExecutorService THREAD_POOL = Executors.newCachedThreadPool();
 
-  public static void Shutdown() {
+  public static void AwaitFinish() {
     THREAD_POOL.shutdown();
+    try {
+      THREAD_POOL.awaitTermination(5, TimeUnit.MINUTES);
+    } catch( Exception e) {
+
+    }
   }
 
   public static Client New(PersistenceManager pPersistenceManager) {

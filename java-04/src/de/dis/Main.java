@@ -11,7 +11,7 @@ public class Main {
         Client.New(PersistenceManager.Get()).Execute(pm -> {
             try {
 
-                for(int i = 0; i < 25; i++)
+                for(int i = 0; i < 15; i++)
                     RandomTransaction(pm,30,39);
 
             } catch (Exception e) {
@@ -23,7 +23,7 @@ public class Main {
         Client.New(PersistenceManager.Get()).Execute(pm -> {
             try {
 
-                for(int i = 0; i < 25; i++)
+                for(int i = 0; i < 15; i++)
                     RandomTransaction(pm,20,29);
 
             } catch (Exception e) {
@@ -35,7 +35,7 @@ public class Main {
         Client.New(PersistenceManager.Get()).Execute(pm -> {
             try {
 
-                for(int i = 0; i < 25; i++)
+                for(int i = 0; i < 15; i++)
                     RandomTransaction(pm,30,39);
 
             } catch (Exception e) {
@@ -44,11 +44,11 @@ public class Main {
         });
 
         // Terminate when no clients are active anymore
-        Client.Shutdown();
+        Client.AwaitFinish();
     }
 
     private static void RandomTransaction(PersistenceManager persistenceManager, int pMinPageId, int pMaxPageId) throws IOException {
-        int numWriteOps = ThreadLocalRandom.current().nextInt(1,50);
+        int numWriteOps = ThreadLocalRandom.current().nextInt(1,25);
 
         // Start transaction
         int id = persistenceManager.BeginTransaction();

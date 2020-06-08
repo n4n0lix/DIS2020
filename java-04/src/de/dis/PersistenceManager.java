@@ -83,9 +83,16 @@ public class PersistenceManager {
       String data = bufferEntry.getValue();
       Persist(pageId, data);
     }
+  }
 
-    // #4 Delete logs upon successful persist
-    m_Logger.DeleteLogs(pTransactionId);
+  public static void Shutdown() {
+    try {
+      Get().m_Logger.Close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    INSTANCE = null;
   }
 
   private void Persist(int pPageId, String pData) throws IOException {
@@ -114,7 +121,7 @@ public class PersistenceManager {
     // #1 Replay open transactions
     // This is used to map old transaction ids to new transaction ids
     Map<Integer,Integer> transactionIdMapping = new Hashtable<>();
-    for(Logger.Entry anEntry : m_Logger.GetAllLogEntriesSorted()) {
+    for(Logger.Entry anEntry : m_Logger.GetAllLogEntries()) {
 
       // #1.1 Begin a new transaction if none exists yet
       int newId;
@@ -137,7 +144,10 @@ public class PersistenceManager {
         System.out.println("restored transaction ["+anEntry.TransactionId+"] successfully!");
       }
 
-      // #2 Discard invalid logs
+      // #2 Discard invalid transactions
+      // We could keep them and hope the clients are trying to finish them, but I
+      // don't see how any client would try to do that
+      m_Buffers.clear();
     }
   }
 
@@ -186,16 +196,17 @@ public class PersistenceManager {
 
   private PersistenceManager() {
     // #1 Initialize
-    // Transactions
     m_LastTransactionId = new AtomicInteger(0);
     m_Buffers = new ConcurrentHashMap<>();
 
-    // Logging
+    // #2 Setup Logger
     m_Logger = new Logger();
-
-    // #2 Trigger redo recovery
     try {
+      // #2.1 Do Recovery
       RedoRecovery();
+
+      // #2.2 Start for normal logging
+      m_Logger.Start();
     } catch (Exception e) {
       System.err.println("recovery failed with exception: " + e.getMessage());
       e.printStackTrace();

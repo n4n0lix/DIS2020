@@ -5,11 +5,19 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
 
+    public static boolean RECOVERY_ONLY = true;
     public static int NUM_TRANSACTIONS = 10;
     public static int NUM_MIN_WRITE_OPS = 10;
     public static int NUM_MAX_WRITE_OPS = 20;
 
     public static void main(String[] args) {
+        // #1 Recovery only mode
+        if (RECOVERY_ONLY) {
+            PersistenceManager.Get(); // This triggers recovery implicit
+            return;
+        }
+
+        // #2 Test mode
         StartNewClient(10,19);
         StartNewClient(20,29);
         StartNewClient(30,39);
@@ -40,7 +48,7 @@ public class Main {
         // Do x random write operations
         for(int i = 0; i < numWriteOps; i++) {
             int pageId = ThreadLocalRandom.current().nextInt(pMinPageId,pMaxPageId);
-            persistenceManager.Write(id, pageId, "data_v"+numWriteOps);
+            persistenceManager.Write(id, pageId, ""+ThreadLocalRandom.current().nextInt(0,9999));
         }
 
         // Commit

@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class PersistenceManager {
 
+  public static int SHRINK_THRESHOLD = 1000;
+
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   //              Transactions                 //
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -55,7 +57,7 @@ public class PersistenceManager {
     m_Buffer.put(pPageId, newWriteOp);
 
     // #4 Try to shrink buffer and persist changes
-    if (m_Buffer.size() > 5) {
+    if (m_Buffer.size() > SHRINK_THRESHOLD) {
       synchronized (m_Buffer) {
         int initSize = m_Buffer.size();
 
@@ -160,9 +162,9 @@ public class PersistenceManager {
     PersistLogEntry(logEntry);
   }
 
-  private Collection<LogEntry> GetAllLogEntries() throws IOException {
+  private Collection<LogEntry> GetAllLogEntries(String pFilePath) throws IOException {
     // #1 Make sure log file exists
-    File logFile = new File(LOG_FILE);
+    File logFile = new File(pFilePath);
     logFile.createNewFile();
 
     // #2 Read all entries
@@ -170,9 +172,13 @@ public class PersistenceManager {
     try(FileReader fr = new FileReader(logFile);
         BufferedReader reader = new BufferedReader(fr)) {
 
-      var entry = LogEntry.FromString(reader.readLine());
-      if (entry != null)
-        result.add(entry);
+      String line;
+      while (((line = reader.readLine()) != null)) {
+        var entry = LogEntry.FromString(line);
+        if (entry != null)
+          result.add(entry);
+      }
+
     }
 
     return result;
@@ -199,7 +205,7 @@ public class PersistenceManager {
     sortedLogs.addAll(pLogs);
 
     // #1 Analysis-Phase
-    // #1.1 Read current page LSN
+    // #1.1 Read persisted LSN of page
     int pageLSN = -1;
     File pageFile = new File(String.valueOf(pPageId));
 
@@ -220,46 +226,37 @@ public class PersistenceManager {
     //      transaction is either its EOT or it doesn't has a logged EOT. The winner transaction here
     //      is the transaction that modified the page value and committed last.
     Set<Integer> participants = new HashSet<>();
-    // TODO: Save all winner transactions and replay them in order
-    int winnerTransId = -1;
-    int winnerEOTLSN = -1;
+    Set<Integer> winners = new HashSet<>();
 
     for(var logEntry : sortedLogs) {
-      boolean isRelevantPageId = logEntry.PageId == pPageId;
-      boolean isRelevantLSN    = logEntry.LSN > pageLSN;
-
-      if (!isRelevantPageId) continue;
-      if (!isRelevantLSN) continue;
-
-      // Collect participants
+      // Check for relevant write
       if (!logEntry.IsEoT) {
+        boolean isRelevantPageId = logEntry.PageId == pPageId;
+        boolean isRelevantLSN    = logEntry.LSN > pageLSN; // TODO: Changing this to >= also recovers from modifying values with intact LSN
+
+        if (!isRelevantPageId) continue;
+        if (!isRelevantLSN) continue;
+
         participants.add(logEntry.TransactionId);
-        continue;
       }
+      // Check for winner eot
+      else {
+        boolean isRelevantEoT = participants.contains(logEntry.TransactionId);
 
-      // Check if this is the new winner EOT
-      boolean isRelevantEoT = participants.contains(logEntry.TransactionId);
-
-      if (!isRelevantEoT) continue;
-
-      // TODO: We are comparing Write-LSN with EOT-LSN here. it should be Write-LSN vs Write-LSN
-      // Update new winner transaction
-      if (winnerEOTLSN < logEntry.LSN) {
-        winnerTransId = logEntry.TransactionId;
-        winnerEOTLSN = logEntry.LSN;
+        if (isRelevantEoT) {
+          winners.add(logEntry.TransactionId);
+        }
       }
     }
 
     // #2 Redo-Phase
-    //    Replay the winner transaction for page
-    if (winnerTransId == -1)
-      return;
-
+    //    Replay the winner transactions for given page
     for(var logEntry : sortedLogs) {
       boolean isWinnerReplayable =
-          logEntry.TransactionId == winnerTransId
-          && logEntry.PageId == pPageId
-          && !logEntry.IsEoT;
+          winners.contains(logEntry.TransactionId)
+          && !logEntry.IsEoT
+          && logEntry.PageId == pPageId;
+
 
       if (isWinnerReplayable) {
         PageWrite write = PageWrite.FromLogEntry(logEntry);
@@ -274,12 +271,18 @@ public class PersistenceManager {
    */
   private void Recovery() throws IOException {
     System.out.println("starting recovery...");
+    BackupAndCreateNewLogFile();
 
     // #1 Find all pages in logs
-    var logs = GetAllLogEntries();
+    var logs = GetAllLogEntries(LOG_FILE);
     Set<Integer> recoveredPages = new HashSet<>();
 
     for(var logEntry : logs) {
+      // Contains no page data
+      if (logEntry.IsEoT)
+        continue;
+
+      // Already recovered
       if (recoveredPages.contains(logEntry.PageId))
         continue;
 
@@ -363,10 +366,10 @@ public class PersistenceManager {
     m_LogFile = new File(LOG_FILE);
 
     try {
-      BackupAndCreateNewLogFile();
       Recovery();
     } catch (Exception e) {
       System.err.println("recovery failed with exception: " + e.getMessage());
+      e.printStackTrace();
       System.exit(1);
     }
 

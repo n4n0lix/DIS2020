@@ -36,20 +36,34 @@
 	The recovery is handled by the  \texttt{PersitenceManager} directly and is started on startup. TODO
 \end{itemize}
 
-\subsection*{b)}
+\newpage
+\subsection*{c.1)}
+\begin{itemize}
+	\item \textbf{After program completion delete a written page and change the value of a written page. Start the recovery and check if it was successful?}
+	\\~\\
+	\textit{After first run:}\\
+	\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{c1_1.png}\\
+	
+	\textit{Deleting and modifying the pages:}\\
+	\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{c1_2.png}\\
+	
+	\textit{After recovery:}\\
+	\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{c1_3.png}\\
+	
+	The recovery failed for page \texttt{30} because the redo-recovery only checks for writes that satisfy \texttt{LSN(LS) > LSN(Page)}. We were wondering why \texttt{>} is not a \texttt{>=} because this small change would enable us to also recover from that error. For page \texttt{31} the recovery worked.
+\end{itemize}
 \begin{lstlisting}
-create table OPK (
-  ID   int4,
-  NAME varchar(64)
-)
+
 \end{lstlisting}
 
-\subsection*{c)}
+\subsection*{c.2)}
 \begin{lstlisting}
-insert into OPK (ID, NAME) 	
-    VALUES (1, 'shaggy'), (2, 'fred'),
-    (3, 'velma'), (4, 'scooby'), (5, 'daphne');
+
 \end{lstlisting}
 
+\subsection*{c.3)}
+\begin{lstlisting}
+
+\end{lstlisting}
 
 \end{document}

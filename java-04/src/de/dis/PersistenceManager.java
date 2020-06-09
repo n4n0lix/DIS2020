@@ -11,8 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class PersistenceManager {
 
-  public static int SHRINK_THRESHOLD = 1000;
-
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   //              Transactions                 //
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -57,7 +55,7 @@ public class PersistenceManager {
     m_Buffer.put(pPageId, newWriteOp);
 
     // #4 Try to shrink buffer and persist changes
-    if (m_Buffer.size() > SHRINK_THRESHOLD) {
+    if (m_Buffer.size() > Main.SHRINK_THRESHOLD) {
       synchronized (m_Buffer) {
         int initSize = m_Buffer.size();
 
@@ -114,15 +112,6 @@ public class PersistenceManager {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
   //<editor-fold desc="Logging">
-  private void BackupAndCreateNewLogFile() throws IOException {
-    // Rename old `persistence.log` to `backup.log`
-    if (m_LogFile.exists()) {
-      m_LogFile.renameTo(m_BackupLogFile);
-    }
-
-    m_LogFile.createNewFile(); // Create new `persistence.log`
-  }
-
   /**
    * Writes a user-data change to the page by the given page-id.
    * @param pTransactionId The transaction id
@@ -271,7 +260,6 @@ public class PersistenceManager {
    */
   private void Recovery() throws IOException {
     System.out.println("starting recovery...");
-    BackupAndCreateNewLogFile();
 
     // #1 Find all pages in logs
     var logs = GetAllLogEntries(LOG_FILE);
@@ -296,11 +284,9 @@ public class PersistenceManager {
 
   // Logging & Recovery
   private        final AtomicInteger m_LastLSN;
-  private        final File          m_BackupLogFile;
   private        final File          m_LogFile;
 
   private static final String        LOG_FILE = "persistence.log";
-  private static final String        BACKUP_FILE = "backup.log";
 
   // Transactions
   private final AtomicInteger m_LastTransactionId;
@@ -362,7 +348,6 @@ public class PersistenceManager {
     m_CommittedTransactions = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
 
     // #2 Recovery & Logging
-    m_BackupLogFile = new File(BACKUP_FILE);
     m_LogFile = new File(LOG_FILE);
 
     try {

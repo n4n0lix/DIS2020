@@ -5,7 +5,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
 
-    public static boolean RECOVERY_ONLY = true;
+
+    public static boolean RECOVERY_ONLY = false;
+    public static int SHRINK_THRESHOLD = 5;
+
     public static int NUM_TRANSACTIONS = 10;
     public static int NUM_MIN_WRITE_OPS = 10;
     public static int NUM_MAX_WRITE_OPS = 20;

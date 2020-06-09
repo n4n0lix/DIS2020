@@ -1,12 +1,13 @@
 package de.dis;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A persistence manager that accepts and performs transactions.
+ * A persistence manager that performs transactions, logging and recovery.
  */
 public class PersistenceManager {
 
@@ -44,7 +45,7 @@ public class PersistenceManager {
     int lsn = LogWrite(pTransactionId, pPageId, pData);
 
     // #2 Construct write operation
-    var newWriteOp = new WriteOperation();
+    var newWriteOp = new PageWrite();
     newWriteOp.PageId = pPageId;
     newWriteOp.LSN = lsn;
     newWriteOp.TransactionId = pTransactionId;
@@ -56,14 +57,17 @@ public class PersistenceManager {
     // #4 Try to shrink buffer and persist changes
     if (m_Buffer.size() > 5) {
       synchronized (m_Buffer) {
-        System.out.println("Attempting to shrink buffer and persist changes ...");
+        int initSize = m_Buffer.size();
 
-        List<WriteOperation> writeOps = new ArrayList<>(m_Buffer.values());
+        List<PageWrite> writeOps = new ArrayList<>(m_Buffer.values());
         for(var writeOp : writeOps)
           if (m_CommittedTransactions.contains(writeOp.TransactionId)) {
             Persist(writeOp);
             m_Buffer.remove(writeOp.PageId);
           }
+
+        if (initSize != m_Buffer.size())
+          System.out.println("Persisted " + (initSize - m_Buffer.size()) + " changes ...");
       }
     }
 
@@ -88,7 +92,7 @@ public class PersistenceManager {
     Delay();
   }
 
-  private void Persist(WriteOperation pWriteOp) throws IOException {
+  private void Persist(PageWrite pWriteOp) throws IOException {
     // #1 Get handle of page file
     File pageFile = new File(String.valueOf(pWriteOp.PageId));
     pageFile.createNewFile(); // This only creates a new file IF the file didn't exists yet
@@ -156,13 +160,13 @@ public class PersistenceManager {
     PersistLogEntry(logEntry);
   }
 
-  private PriorityQueue<LogEntry> GetAllLogEntries() throws IOException {
+  private Collection<LogEntry> GetAllLogEntries() throws IOException {
     // #1 Make sure log file exists
     File logFile = new File(LOG_FILE);
     logFile.createNewFile();
 
     // #2 Read all entries
-    PriorityQueue<LogEntry> result = new PriorityQueue<LogEntry>(Comparator.comparingInt(o -> o.LSN));
+    ArrayList<LogEntry> result = new ArrayList<LogEntry>();
     try(FileReader fr = new FileReader(logFile);
         BufferedReader reader = new BufferedReader(fr)) {
 
@@ -187,33 +191,81 @@ public class PersistenceManager {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
   //<editor-fold desc="Recovery">
-  private void RecoverPage(int pPageId, PriorityQueue<LogEntry> pLogs) {
-    // #1 Filter logs to given pageId
-    PriorityQueue<LogEntry> pageLogs = new PriorityQueue<>(pLogs);
-    pageLogs.removeIf(logEntry -> logEntry.PageId != pPageId);
+  private void RecoverPage(int pPageId, Collection<LogEntry> pLogs) throws IOException {
+    if (pLogs.isEmpty())
+      return;
 
-    // #2 Analyse page status (find current LSN and status)
-    int currentLSN = -1;
-    String currentData = null;
+    PriorityQueue<LogEntry> sortedLogs = new PriorityQueue<>(Comparator.comparingInt(o -> o.LSN));
+    sortedLogs.addAll(pLogs);
+
+    // #1 Analysis-Phase
+    // #1.1 Read current page LSN
+    int pageLSN = -1;
     File pageFile = new File(String.valueOf(pPageId));
 
-    // #2.1 Read file if exists
     if (pageFile.exists()) {
       try (FileReader fr = new FileReader(pageFile);
            BufferedReader reader = new BufferedReader(fr)) {
 
         String[] data = reader.readLine().split(",");
-        currentLSN = Integer.parseInt(data[0]);
-        currentData = data[1];
+        pageLSN = Integer.parseInt(data[0]);
 
       } catch (Exception e) {
         System.err.println("couldn't determine page status, assuming to be empty");
-        currentLSN = -1;
-        currentData = null;
+        pageLSN = -1;
       }
     }
 
-    // #3 Start the redo recovery
+    // #1.2 Determine winner transaction. We assume the logs are sorted so that the last log for any
+    //      transaction is either its EOT or it doesn't has a logged EOT. The winner transaction here
+    //      is the transaction that modified the page value and committed last.
+    Set<Integer> participants = new HashSet<>();
+    // TODO: Save all winner transactions and replay them in order
+    int winnerTransId = -1;
+    int winnerEOTLSN = -1;
+
+    for(var logEntry : sortedLogs) {
+      boolean isRelevantPageId = logEntry.PageId == pPageId;
+      boolean isRelevantLSN    = logEntry.LSN > pageLSN;
+
+      if (!isRelevantPageId) continue;
+      if (!isRelevantLSN) continue;
+
+      // Collect participants
+      if (!logEntry.IsEoT) {
+        participants.add(logEntry.TransactionId);
+        continue;
+      }
+
+      // Check if this is the new winner EOT
+      boolean isRelevantEoT = participants.contains(logEntry.TransactionId);
+
+      if (!isRelevantEoT) continue;
+
+      // TODO: We are comparing Write-LSN with EOT-LSN here. it should be Write-LSN vs Write-LSN
+      // Update new winner transaction
+      if (winnerEOTLSN < logEntry.LSN) {
+        winnerTransId = logEntry.TransactionId;
+        winnerEOTLSN = logEntry.LSN;
+      }
+    }
+
+    // #2 Redo-Phase
+    //    Replay the winner transaction for page
+    if (winnerTransId == -1)
+      return;
+
+    for(var logEntry : sortedLogs) {
+      boolean isWinnerReplayable =
+          logEntry.TransactionId == winnerTransId
+          && logEntry.PageId == pPageId
+          && !logEntry.IsEoT;
+
+      if (isWinnerReplayable) {
+        PageWrite write = PageWrite.FromLogEntry(logEntry);
+        Persist(write);
+      }
+    }
   }
 
   /**
@@ -221,44 +273,21 @@ public class PersistenceManager {
    * @throws IOException If writing or committing failed. This is a critical failure.
    */
   private void Recovery() throws IOException {
-    System.out.println("performing recovery ...");
+    System.out.println("starting recovery...");
 
-    if (!m_BackupLogFile.exists()) {
-      System.out.println("No backup log file found, skipping recovery");
-      return;
+    // #1 Find all pages in logs
+    var logs = GetAllLogEntries();
+    Set<Integer> recoveredPages = new HashSet<>();
+
+    for(var logEntry : logs) {
+      if (recoveredPages.contains(logEntry.PageId))
+        continue;
+
+      RecoverPage(logEntry.PageId, logs);
+      recoveredPages.add(logEntry.PageId);
     }
 
-    // #1 Replay open transactions
-    // This is used to map old transaction ids to new transaction ids
-    Map<Integer,Integer> transactionIdMapping = new Hashtable<>();
-    for(LogEntry anLogEntry : GetAllLogEntries()) {
-
-      // #1.1 Begin a new transaction if none exists yet
-      int newId;
-      // No new transaction exists for this old transaction yet
-      if (!transactionIdMapping.containsKey(anLogEntry.TransactionId)) {
-        newId = BeginTransaction();
-        transactionIdMapping.put(anLogEntry.TransactionId, newId);
-      }
-      // We already began a transaction
-      else {
-        newId = transactionIdMapping.get(anLogEntry.TransactionId);
-      }
-
-      // #1.2 Replay the operation
-      if (!anLogEntry.IsEoT) {
-        Write(newId, anLogEntry.PageId, anLogEntry.Data);
-      }
-      else {
-        Commit(newId);
-        System.out.println("restored transaction ["+ anLogEntry.TransactionId+"] successfully!");
-      }
-
-      // #2 Discard invalid transactions
-      // We could keep them and hope the clients are trying to finish them, but I
-      // don't see how any client would try to do that
-      m_Buffer.clear();
-    }
+    System.out.println("recovery finished");
   }
   //</editor-fold>
 
@@ -272,7 +301,7 @@ public class PersistenceManager {
 
   // Transactions
   private final AtomicInteger m_LastTransactionId;
-  private final Map<Integer, WriteOperation> m_Buffer; // Key: PageId
+  private final Map<Integer, PageWrite> m_Buffer; // Key: PageId
   private final Set<Integer> m_CommittedTransactions; // Key: TransactionId
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -293,11 +322,20 @@ public class PersistenceManager {
     Wait(ThreadLocalRandom.current().nextInt(minDelay,maxDelay));
   }
 
-  public static class WriteOperation {
+  public static class PageWrite {
     public int PageId;
     public int LSN;
     public int TransactionId;
     public String Data;
+
+    public static PageWrite FromLogEntry(LogEntry pLogEntry) {
+      PageWrite pageWrite = new PageWrite();
+      pageWrite.LSN = pLogEntry.LSN;
+      pageWrite.Data = pLogEntry.Data;
+      pageWrite.PageId = pLogEntry.PageId;
+      pageWrite.TransactionId = pLogEntry.TransactionId;
+      return pageWrite;
+    }
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -324,7 +362,6 @@ public class PersistenceManager {
     m_BackupLogFile = new File(BACKUP_FILE);
     m_LogFile = new File(LOG_FILE);
 
-    System.out.println("starting recovery...");
     try {
       BackupAndCreateNewLogFile();
       Recovery();
@@ -332,7 +369,6 @@ public class PersistenceManager {
       System.err.println("recovery failed with exception: " + e.getMessage());
       System.exit(1);
     }
-    System.out.println("recovery finished");
 
     System.out.println("started persistence-manager");
   }

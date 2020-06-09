@@ -10,45 +10,25 @@ public class Main {
     public static int NUM_MAX_WRITE_OPS = 20;
 
     public static void main(String[] args) {
-        // pm -> Persistence Manager
-        // #1 Client
-        Client.New(PersistenceManager.Get()).Execute(pm -> {
-            try {
+        StartNewClient(10,19);
+        StartNewClient(20,29);
+        StartNewClient(30,39);
+        StartNewClient(40,49);
+        StartNewClient(50,59);
 
-                for(int i = 0; i < NUM_TRANSACTIONS; i++)
-                    RandomTransaction(pm,10,19);
-
-            } catch (Exception e) {
-                System.err.println("Something went wrong: " + e.getMessage());
-            }
-        });
-
-        // #2 Client
-        Client.New(PersistenceManager.Get()).Execute(pm -> {
-            try {
-
-                for(int i = 0; i < NUM_TRANSACTIONS; i++)
-                    RandomTransaction(pm,20,29);
-
-            } catch (Exception e) {
-                System.err.println("Something went wrong: " + e.getMessage());
-            }
-        });
-
-        // #2 Client
-        Client.New(PersistenceManager.Get()).Execute(pm -> {
-            try {
-
-                for(int i = 0; i < NUM_TRANSACTIONS; i++)
-                    RandomTransaction(pm,30,39);
-
-            } catch (Exception e) {
-                System.err.println("Something went wrong: " + e.getMessage());
-            }
-        });
-
-        // Terminate when no clients are active anymore
+        // Terminate when no active clients
         Client.AwaitFinish();
+    }
+
+    private static void StartNewClient(int pMinPageId, int pMaxPageId) {
+        Client.New(PersistenceManager.Get()).Execute(pm -> {
+            try {
+                for(int i = 0; i < NUM_TRANSACTIONS; i++)
+                    RandomTransaction(pm,pMinPageId,pMaxPageId);
+            } catch (Exception e) {
+                System.err.println("Something went wrong: " + e.getMessage());
+            }
+        });
     }
 
     private static void RandomTransaction(PersistenceManager persistenceManager, int pMinPageId, int pMaxPageId) throws IOException {

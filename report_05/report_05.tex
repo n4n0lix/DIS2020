@@ -1,0 +1,90 @@
+\documentclass[a4paper,english,abstract=on]{scrartcl}
+
+\usepackage{mathtools} % loads amsmath and fixes its bugs in Unicode & XeLaTeX/LuaLaTeX 
+\usepackage[english]{babel}
+\usepackage[]{unicode-math} % provides Unicode Math support for XeLaTeX/LuaLaTeX 
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[autostyle=true]{csquotes}
+\usepackage[backend=biber, style=numeric-comp]{biblatex}
+
+\usepackage{fontspec}
+\newfontfamily{\ttconsolas}{Consolas}
+\usepackage{listings}
+\setmonofont{Consolas}
+\lstset{
+	breaklines=true,
+	tabsize=2,
+	basicstyle=\ttfamily\small,
+}
+
+\addbibresource{literatur.bib}
+
+\title{Exercise 5 Report}
+\subtitle{Gruppe 16}
+\author{Anastasiia Rubanovych\and Sebastian Funck}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\subsection*{1)}
+\textbf{INSERT}
+\begin{lstlisting}{Name}
+> db.films.insert({ 
+	title: "Iron Man 3", 
+	year: 2013, 
+	genre: [ "Action", "Adventure", "Sci-Fi", ], 
+	actors: [ "Downey Jr., Robert", "Paltrow, Gwyneth",]
+})
+WriteResult({ "nInserted" : 1 })
+\end{lstlisting}
+~\\
+\textbf{QUERY}
+\begin{lstlisting}{Name}
+> db.films.find(
+	{ year: {$gt: 2009,$lte: 2011}, title: /^T/},
+	{ _id: 0,title: 1}
+)
+WriteResult({ "nInserted" : 1 })
+\end{lstlisting}
+~\\
+\textbf{UPDATE}
+\begin{lstlisting}{Name}
+> db.films.update(
+	{title: "Star Trek Into Darkness"},
+	{$set: {rating: 6.4}}
+)
+WriteResult({"nMatched": 1, "nUpserted":0, "nModified":1 })
+\end{lstlisting}
+~\\
+\textbf{DELETE}
+\begin{lstlisting}{Name}
+> db.films.remove({title: /^T/})
+WriteResult({ "nRemoved" : 2 })
+\end{lstlisting}
+
+\newpage
+\textbf{INDEXING}
+\begin{lstlisting}{Name}
+> db.movies.find({rating: {$gt: 6.14,$lt: 7.78}})
+           .explain("executionStats")
+{
+...
+"executionTimeMillis" : 172,
+...
+}
+
+> db.movies.ensureIndex({rating: 1})
+> db.movies.find({rating: {$gt: 6.14,$lt: 7.78}})
+           .explain("executionStats")
+{
+...
+"executionTimeMillis" : 118,
+...
+}
+\end{lstlisting}
+
+\end{document}

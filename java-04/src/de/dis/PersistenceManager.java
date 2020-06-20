@@ -221,7 +221,7 @@ public class PersistenceManager {
       // Check for relevant write
       if (!logEntry.IsEoT) {
         boolean isRelevantPageId = logEntry.PageId == pPageId;
-        boolean isRelevantLSN    = logEntry.LSN > pageLSN; // TODO: Changing this to >= also recovers from modifying values with intact LSN
+        boolean isRelevantLSN    = logEntry.LSN > pageLSN; // TODO: Changing this to >= also recovers from error values with intact LSN
 
         if (!isRelevantPageId) continue;
         if (!isRelevantLSN) continue;

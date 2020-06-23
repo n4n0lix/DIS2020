@@ -86,5 +86,44 @@ WriteResult({ "nRemoved" : 2 })
 ...
 }
 \end{lstlisting}
-
+\subsection*{2)}
+We implemented following functionality:
+\begin{itemize}
+	\item {\ttconsolas findMovieByTitle}\\
+	We used {\ttconsolas movies.find(new Document("title", title)).first()} for this method because we couldn't find an equivalent to {\ttconsolas findOne}.
+	\item {\ttconsolas getBestMovies}\\
+	We combined {\ttconsolas Filters.and} and {\ttconsolas Filters.gt} to filter for movies that have a rating and number of votes larger than the given arguments.
+	\item {\ttconsolas getByGenre}\\
+	We used {\ttconsolas Filters.all} to filter for all movies that have the given filters. We also added a {\ttconsolas .replace(" ","")} so the user can have whitespaces in the query.
+	\item {\ttconsolas searchByPrefix}\\
+	We applied a {\ttconsolas Filters.regex} with pattern {\ttconsolas $\wedge$}\textit{prefix} to filter for movies beginning with the given prefix.
+	\item {\ttconsolas getTweetedMovies}\\
+	To find movies that have been tweeted about we comined a {\ttconsolas Filters.exists("tweets")} and a {\ttconsolas Filters.ne("tweets", null)} filter. In theory the {\ttconsolas Filters.nin} filter is redundant as movies without tweets don't have the tweets-field, but added the null-check for robustness.
+	\item {\ttconsolas saveMovieComment}\\
+	Executes a {\ttconsolas updateOne} for a given movie Object-ID and sets the new comment.
+	\item {\ttconsolas getByTweetsKeywordRegex}\\
+	For this method we used a 2 phase query. First we find tweets that match the keyword-regex and collect the distinct values of the {\ttconsolas movies} field. Afterwards we fetch the movies by the values we collected in the first step.
+	\item {\ttconsolas searchTweets}\\
+	After the index has been created on {\ttconsolas text} and {\ttconsolas user.name} we use {\ttconsolas Filters.text} to do a full-text search over the indexed fields.
+	\item {\ttconsolas getNewestTweets}\\
+	We fetch the latest object-ids to find the correspoding tweets.
+	\item {\ttconsolas getGeotaggedTweets}\\
+	We search for tweets that have the field {\ttconsolas "coordinates"} and it's not null.
+	\item {\ttconsolas saveFile}
+	We use {\ttconsolas GridFSBucket.uploadFromStream} to upload the file.
+	\item {\ttconsolas getFile}
+	First we try to fetch the first GridFSFile that matches the given filename via {\ttconsolas GridFSBucket.find}. If that file doesn't exists we fetch the backup file {\ttconsolas sample.png} from that we know it is available.
+\end{itemize}
+\textbf{findMovieByTitle / getFile / saveFile / saveMovieComment}\\
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{startrek.png}\\
+\newpage
+\textbf{getByGenre}\\
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{search_genre_list.png}\\
+\textbf{searchTweets}\\
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{search_full_text.png}\\
+\newpage
+\textbf{getNewestTweets}\\
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{search_newest_tweets.png}\\
+\textbf{getBestMovies}\\
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{search_rating.png}\\
 \end{document}

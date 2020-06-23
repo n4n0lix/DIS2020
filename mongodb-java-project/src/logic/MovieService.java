@@ -121,7 +121,7 @@ public class MovieService extends MovieServiceBase {
 	 * @return the FindIterable for the query
 	 */
 	public FindIterable<Document> getByGenre(String genreList, int limit) {
-		List<String> genres = Arrays.asList(genreList.split(","));
+		List<String> genres = Arrays.asList(genreList.replace(" ","").split(","));
 		FindIterable<Document> result = movies.find(
 			all("genre", genres)
 		).limit(limit);
@@ -155,7 +155,10 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public FindIterable getTweetedMovies() {
 		FindIterable<Document>  result = movies.find(
-				exists("tweets")
+				and(
+						exists("tweets"),
+						ne("tweets", null)
+				)
 		);
 		return result;
 	}
@@ -289,8 +292,7 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public void saveFile(String name, InputStream inputStream, String contentType) {
 		GridFSUploadOptions options = new GridFSUploadOptions().chunkSizeBytes(358400).metadata(new Document("contentType", contentType));
-
-	    ObjectId fileId = fs.uploadFromStream(name, inputStream, options);
+		ObjectId fileId = fs.uploadFromStream(name, inputStream, options);
 	}
 
 	/**

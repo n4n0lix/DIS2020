@@ -1,8 +1,9 @@
 package project06;
 
-import project06.warehouse.Sales;
-import project06.warehouse.Product;
-import project06.warehouse.Store;
+import project06.warehouse.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Main {
 
@@ -22,10 +23,25 @@ public class Main {
     // #2 Import CSV into warehouse
     System.out.println("\n== CSV Import ===");
     System.out.println("importing sales data ... ");
+    // Reading csv
     var sales = Sales.ImportFromFile("sales.csv");
     System.out.println("✓ (" + sales.size() + " entries)");
 
+    // Importing Dates
+    var saleDates = sales.stream()
+                         .map(e -> e.Date)
+                         .collect(Collectors.toSet());
+    var dates = WHDate.StoreInWarehouse(saleDates);
+    System.out.println("✓ (" + dates.size() + " dates)");
+
+    // #3 Construct facts
+    System.out.println("writing facts ... ");
+    List<SalesFact> facts = SalesFact.Construct(sales, products, stores, dates);
+    int factsWritten = SalesFact.StoreInWarehouse(facts);
+    System.out.println("✓ (" + factsWritten + " facts)");
+
     // #4 Make available
+
   }
 
 }

@@ -11,18 +11,26 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 public class Sales {
 
-  public static class Entry {
+
+  private static String DateInsertQuery = "insert into warehouse.date (\"date\") values (?)";
+
     public String ShopName;
     public String ArticleName;
     public int Sold;
     public double Revenue;
-    public Date Date;
+    public LocalDate Date;
+
+    public LocalDate GetDate() {
+      return Date;
+    }
 
     @Override
     public String toString() {
@@ -35,10 +43,10 @@ public class Sales {
       sb.append('}');
       return sb.toString();
     }
-  }
 
-  public static List<Entry> ImportFromFile(String pFileName) {
-    List<Entry> result = new ArrayList<>();
+
+  public static List<Sales> ImportFromFile(String pFileName) {
+    List<Sales> result = new ArrayList<>();
     Path path = Paths.get(pFileName);
 
     if (!new File(pFileName).exists()) {
@@ -54,7 +62,7 @@ public class Sales {
         lineCounter++;
 
         // #1 Prepare for reading
-        var dateParser = new SimpleDateFormat("dd.MM.yyyy");
+        var dateParser = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         var splits = line.split(";");
 
         // #2 Read entry
@@ -63,8 +71,8 @@ public class Sales {
         }
 
         try {
-          Entry e = new Entry();
-          e.Date = dateParser.parse(splits[0]);
+          Sales e = new Sales();
+          e.Date = LocalDate.parse(splits[0], dateParser);
           e.ShopName = splits[1];
           e.ArticleName = splits[2];
           e.Sold = Integer.parseInt(splits[3]);
@@ -83,7 +91,7 @@ public class Sales {
     return result;
   }
 
-  public static int StoreTimeInWarehouse(List<Entry> pEntries) {
+  public static int StoreDatesInWarehouse(List<Sales> pEntries) {
     // #1 Create connection
     Connection dbConn = null;
     int written = 0;
@@ -97,14 +105,11 @@ public class Sales {
 
     // #2 Load data
     try {
-      String selectSQL = ImportQuery;
-      PreparedStatement stmt = DB.Connection().prepareStatement(InsertQuery);
+      String selectSQL = DateInsertQuery;
+      PreparedStatement stmt = dbConn.prepareStatement(DateInsertQuery);
 
-      for(var product : pProducts) {
-        stmt.setString(1, product.Name);
-        stmt.setString(2, product.Group);
-        stmt.setString(3, product.Family);
-        stmt.setString(4, product.Category);
+      for(var entry : pEntries) {
+        stmt.setObject(1, entry.Date);
         stmt.addBatch();
       }
 
@@ -120,43 +125,4 @@ public class Sales {
 
     return written;
   }
-
-  public static int StoreSalesFactsInWarehouse(List<Entry> pEntries) {
-    // #1 Create connection
-    Connection dbConn = null;
-    int written = 0;
-
-    try {
-      dbConn = DriverManager.getConnection("jdbc:postgresql://localhost/postgres", "root", "pw");
-      dbConn.setSchema("warehouse");
-    } catch (SQLException e1) {
-      e1.printStackTrace();
-    }
-
-    // #2 Load data
-    try {
-      String selectSQL = ImportQuery;
-      PreparedStatement stmt = DB.Connection().prepareStatement(InsertQuery);
-
-      for(var product : pProducts) {
-        stmt.setString(1, product.Name);
-        stmt.setString(2, product.Group);
-        stmt.setString(3, product.Family);
-        stmt.setString(4, product.Category);
-        stmt.addBatch();
-      }
-
-      int[] result = stmt.executeBatch();
-      for(var r : result)
-        written += r;
-
-      stmt.close();
-
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    return written;
-  }
-
 }

@@ -60,10 +60,7 @@ public class Store {
     }
 
     // #2 Load data
-    try {
-      String selectSQL = ImportQuery;
-      PreparedStatement stmt = DB.Connection().prepareStatement(InsertQuery);
-
+    try(PreparedStatement stmt = dbConn.prepareStatement(InsertQuery, Statement.RETURN_GENERATED_KEYS)) {
       for(var product : pStores) {
         stmt.setString(1, product.Name);
         stmt.setString(2, product.City);
@@ -72,12 +69,20 @@ public class Store {
         stmt.addBatch();
       }
 
+      // #2.2 Execute and count writes
       int[] result = stmt.executeBatch();
       for(var r : result)
         written += r;
 
-      stmt.close();
-
+      // #2.3 Assign ids
+      // If no exception has been thrown until here we wrote every line successful and therefore
+      // num generated keys == num products
+      try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+        for(var store : pStores) {
+          generatedKeys.next();
+          store.Id = generatedKeys.getInt(1);
+        }
+      }
     } catch (Exception e) {
       e.printStackTrace();
     }

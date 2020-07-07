@@ -1,0 +1,112 @@
+\documentclass[a4paper,english,abstract=on]{scrartcl}
+
+\usepackage{mathtools} % loads amsmath and fixes its bugs in Unicode & XeLaTeX/LuaLaTeX 
+\usepackage[english]{babel}
+\usepackage[]{unicode-math} % provides Unicode Math support for XeLaTeX/LuaLaTeX 
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[autostyle=true]{csquotes}
+\usepackage[backend=biber, style=numeric-comp]{biblatex}
+\usepackage{listings}
+\lstset{language=Bash}
+
+\usepackage{fontspec}
+\newfontfamily{\ttconsolas}{Consolas}
+\usepackage{listings}
+\setmonofont{Consolas}
+\lstset{
+	breaklines=true,
+	tabsize=2,
+	basicstyle=\ttfamily\tiny,
+}
+
+\addbibresource{literatur.bib}
+
+\title{Exercise 6 Report}
+\subtitle{Gruppe 16}
+\author{Anastasiia Rubanovych\and Sebastian Funck}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\subsection*{1}
+\textbf{Describe your implementation of the ETL process and especially your schema decisions.}
+
+First we load the provided data (CSV-File and SQL-Tables) into memory and then convert it into our data schema and store it in the data warehouse. Our schema follows the star-schema and consists of a central fact-table \texttt{facts} that references the dimension-tables \texttt{products}, \texttt{stores} and \texttt{date}. The according data-structures are \texttt{SalesFact}, \texttt{Product}, \texttt{Store} and \texttt{WHDate}. \texttt{SalesFact} contains references to \texttt{Product}, \texttt{Store}, \texttt{WHDate}, and contains fact data like units sold and revenue.
+~\\~\\
+\textbf{How do you transform the CSV? Were any further steps necessary?}
+First we read all dates that are appearing in the CSV and populate our \texttt{date}-table with the values, so we can reference it laters. We then read all the lines into a sales data-structure that contains the date, article name, shop name, units sold and revenue. Instead of writing this data-structure directly into a table we replace the article name with the product-id in dimension-table \texttt{products}, the store name with the store-id in dimension-table \texttt{stores} and the date with the date-id in dimension-table \texttt{date}.
+
+We also skip entries in the CSV that are unprocessible due to e.g. wrong data-type and notify the user via console output.
+\newpage
+\textbf{Provide log outputs of the whole process (e.g., amount of imported tuples, schema creation, etc.)}
+\begin{lstlisting}
+=== SQL Import ===
+importing products ...
+save product - `Pioneer DVR-550HX`
+save product - `LG RH-T 298`
+save product - `Samsung DVD-SR275`
+save product - `BenQ DE350P`
+save product - `Panasonic HDC-SD707`
+save product - `Sony HDR-CX115`
+save product - `Kodak Zx3 Playsport`
+save product - `Toshiba Camileo S20`
+save product - `Onkyo DX-7355`
+save product - `Yamaha CDX-497`
+save product - `Sony CDP-XE370`
+save product - `Denon DCD-710AE`
+save product - `Sony PS-LX 300 USB`
+save product - `Technics SL-1210 MK5`
+save product - `Jaytec DJT-20`
+save product - `Numark TT1650`
+save product - `AEG Öko-Lavamat Öko Plus 1400`
+save product - `Bosch WAE 2834P`
+save product - `Miele Softtronic W 3241 WPS`
+save product - `Bauknecht WA Sensitive 36 DI`
+save product - `AEG Öko Lavatherm 59850 Sensidry`
+save product - `Bauknecht TK Care 6B`
+save product - `Miele Softtronic T 7744 C`
+save product - `Bosch WTE 84301`
+save product - `Wolf-Garten 2.34 E`
+save product - `Bosch Rotak 43 LI (Modell 2009)`
+save product - `Einhell RPM 56 S-MS`
+save product - `Gardena PowerMax 42 E`
+save product - `Wolf-Garten Campus 1000 V`
+save product - `Güde GV 2400 SL`
+save product - `Brill 28 VE/RL`
+save product - `Gardena CS Vertikutier-Boy (3395-20)`
+✓ (32/32 products)
+importing stores ...
+save store - `Superstore Stuttgart`
+save store - `Superstore München`
+save store - `Superstore Berlin`
+save store - `Superstore Potsdam`
+save store - `Superstore Bremen`
+save store - `Superstore Hamburg`
+save store - `Superstore Wiesbaden`
+save store - `Superstore Schwerin`
+save store - `Superstore Hannover`
+save store - `Superstore Düsseldorf`
+save store - `Superstore Mainz`
+save store - `Superstore Saarbrücken`
+save store - `Superstore Dresden`
+save store - `Superstore Magdeburg`
+save store - `Superstore Kiel`
+save store - `Superstore Erfurt`
+✓ (16/16 stores)
+
+== CSV Import ===
+importing sales data ... 
+invalid format detected in line:35905: `06.04.2019;12.03.2019;Superstore Dresden;AEG Öko Lavatherm 59850 Sensidry;3;2997,00` (this line will be ignored)
+✓ (77311 entries)
+✓ (151 dates)
+writing facts ... 
+no store found for name ´furt` (skipping entry)
+
+\end{lstlisting}
+
+
+\end{document}

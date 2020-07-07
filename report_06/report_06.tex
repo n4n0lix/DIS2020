@@ -34,14 +34,55 @@
 
 \subsection*{1}
 \textbf{Describe your implementation of the ETL process and especially your schema decisions.}
-
+~\\~\\
 First we load the provided data (CSV-File and SQL-Tables) into memory and then convert it into our data schema and store it in the data warehouse. Our schema follows the star-schema and consists of a central fact-table \texttt{facts} that references the dimension-tables \texttt{products}, \texttt{stores} and \texttt{date}. The according data-structures are \texttt{SalesFact}, \texttt{Product}, \texttt{Store} and \texttt{WHDate}. \texttt{SalesFact} contains references to \texttt{Product}, \texttt{Store}, \texttt{WHDate}, and contains fact data like units sold and revenue.
 ~\\~\\
+Our schema:
+\begin{lstlisting}
+CREATE TABLE warehouse.products (
+	id serial NOT NULL,
+	"name" varchar NOT NULL,
+	product_group varchar NOT NULL,
+	product_family varchar NOT NULL,
+	product_category varchar NOT NULL
+);
+
+CREATE TABLE warehouse.stores (
+	id serial NOT NULL,
+	"name" varchar NOT NULL,
+	city varchar NOT NULL,
+	region varchar NOT NULL,
+	country varchar NOT NULL
+);
+
+CREATE TABLE warehouse.facts (
+	id serial NOT NULL,
+	product_id int4 NOT NULL,
+	store_id int4 NOT NULL,
+	date_id int4 NOT NULL,
+	sales int4 NOT NULL,
+	revenue float8 NOT NULL
+);
+
+CREATE TABLE warehouse."date" (
+	id serial NOT NULL,
+	"day" int4 NOT NULL,
+	"month" int4 NOT NULL,
+	quarter int4 NOT NULL,
+	"year" int4 NOT NULL
+);
+\end{lstlisting}
+\begin{itemize}
+	\item We didn't add foreign-keys/contraints in the system for symplicity, but they should be set when implementing something similar in a production system.
+	\item We didn't use the sql type \texttt{date} but rather a custom date representation made up of simple integers to make grouping (for example per quarter) and filtering easier.
+		\item We chose to create dimension-tables for \texttt{products}, \texttt{stores} and \texttt{date} because multiple sale-facts can refer to the same dimension-value therefore avoiding duplicate data.
+\end{itemize}
 \textbf{How do you transform the CSV? Were any further steps necessary?}
+~\\~\\
 First we read all dates that are appearing in the CSV and populate our \texttt{date}-table with the values, so we can reference it laters. We then read all the lines into a sales data-structure that contains the date, article name, shop name, units sold and revenue. Instead of writing this data-structure directly into a table we replace the article name with the product-id in dimension-table \texttt{products}, the store name with the store-id in dimension-table \texttt{stores} and the date with the date-id in dimension-table \texttt{date}.
 
 We also skip entries in the CSV that are unprocessible due to e.g. wrong data-type and notify the user via console output.
-\newpage
+~\\~\\
 \textbf{Provide log outputs of the whole process (e.g., amount of imported tuples, schema creation, etc.)}
 \begin{lstlisting}
 === SQL Import ===
@@ -107,11 +148,11 @@ writing facts ...
 no store found for name ´furt` (skipping entry)
 
 \end{lstlisting}
-
-\newpage
+~\\~\\
 \textbf{Describe your database queries}
 ~\\~\\
 We have one query-template in which we fill in the granularity level depending on the user input and then output the result in a table. We build the sum of sold units (\texttt{facts.sales}) over the different levels by utilizing the SQL \texttt{CUBE} function. This creates subtotals and groups the data in a useful way.
+
 \begin{lstlisting}
 select 
 	{t_product} as product,
@@ -132,10 +173,15 @@ GROUP BY
 ORDER by
 	location, "time", product;
 \end{lstlisting}
+
+
+One problem with this query is that if you filter for \texttt{day} it will only show the day number, not the whole date or if you filter by \texttt{quarter} it only shows the quarter number instead of quarter number and year. We noticed this flaw too late in order to fix it as we would have to adjust the way we store, query and print the date.
+
+
 ~\\~\\
 \textbf{Give some lines of the lowest granularity level log output (article, date, shop) and the whole output for the highest level (product category, year, country)}
 ~\\~\\
-\textit{Note: The total of a segment is always its own line with \texttt{PRODUCT=TOTAL}}
+\textit{Note: The total of a segment is always in its own line with \texttt{PRODUCT=TOTAL}. With more effort put into layouting the table could be transformed into the table pictured on the exercise sheet.}
 ~\\~\\
 Highest granularity:
 \begin{lstlisting}

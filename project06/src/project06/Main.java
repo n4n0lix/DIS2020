@@ -32,7 +32,10 @@ public class Main {
   }
 
   public static void main(String[] args) {
-//    DoETL();
+    boolean doEtl = true;
+
+    if (doEtl)
+      DoETL();
 
     Query(LocationLevel.STORE, TimeLevel.DAY, ProductLevel.PRODUCT);
   }

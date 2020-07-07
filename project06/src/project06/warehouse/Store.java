@@ -61,12 +61,13 @@ public class Store {
 
     // #2 Load data
     try(PreparedStatement stmt = dbConn.prepareStatement(InsertQuery, Statement.RETURN_GENERATED_KEYS)) {
-      for(var product : pStores) {
-        stmt.setString(1, product.Name);
-        stmt.setString(2, product.City);
-        stmt.setString(3, product.Region);
-        stmt.setString(4, product.Country);
+      for(var store : pStores) {
+        stmt.setString(1, store.Name);
+        stmt.setString(2, store.City);
+        stmt.setString(3, store.Region);
+        stmt.setString(4, store.Country);
         stmt.addBatch();
+        System.out.println("save store - `" + store.Name + "`");
       }
 
       // #2.2 Execute and count writes

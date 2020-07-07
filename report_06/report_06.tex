@@ -108,5 +108,80 @@ no store found for name ´furt` (skipping entry)
 
 \end{lstlisting}
 
-
+\newpage
+\textbf{Describe your database queries}
+~\\~\\
+We have one query-template in which we fill in the granularity level depending on the user input and then output the result in a table. We build the sum of sold units (\texttt{facts.sales}) over the different levels by utilizing the SQL \texttt{CUBE} function. This creates subtotals and groups the data in a useful way.
+\begin{lstlisting}
+select 
+	{t_product} as product,
+	{t_location} as location,
+	{t_time} as "time",
+	SUM(warehouse.facts.sales) as sls 
+from 
+	warehouse.facts, 
+	warehouse.products, 
+	warehouse."date", 
+	warehouse.stores 
+where 
+	warehouse.facts.product_id = warehouse.products.id 
+	and warehouse.facts.store_id = warehouse.stores .id 
+	and warehouse.facts.date_id = warehouse."date".id 
+GROUP BY
+	CUBE(location, "time", product)
+ORDER by
+	location, "time", product;
+\end{lstlisting}
+~\\~\\
+\textbf{Give some lines of the lowest granularity level log output (article, date, shop) and the whole output for the highest level (product category, year, country)}
+~\\~\\
+\textit{Note: The total of a segment is always its own line with \texttt{PRODUCT=TOTAL}}
+~\\~\\
+Highest granularity:
+\begin{lstlisting}
+LOCATION             | TIME                 | PRODUCT              | SALES               
+------------------------------------------------------------------------------------------
+Deutschland          | 2019                 | Großgeräte           | 942327               | 
+Deutschland          | 2019                 | Heimelektronik       | 945331               | 
+Deutschland          | 2019                 | TOTAL                | 1887658              | 
+\end{lstlisting}
+~\\~\\
+Smallest granularity:
+\begin{lstlisting}
+LOCATION             | TIME                 | PRODUCT              | SALES               
+------------------------------------------------------------------------------------------
+...
+Superstore Wiesbaden | 29                   | Miele Softtronic T   | 51                   | 
+Superstore Wiesbaden | 29                   | Miele Softtronic W   | 112                  | 
+Superstore Wiesbaden | 29                   | Numark TT1650        | 107                  | 
+Superstore Wiesbaden | 29                   | Onkyo DX-7355        | 136                  | 
+Superstore Wiesbaden | 29                   | Panasonic HDC-SD707  | 53                   | 
+Superstore Wiesbaden | 29                   | Pioneer DVR-550HX    | 111                  | 
+Superstore Wiesbaden | 29                   | Samsung DVD-SR275    | 110                  | 
+Superstore Wiesbaden | 29                   | Sony CDP-XE370       | 113                  | 
+Superstore Wiesbaden | 29                   | Sony HDR-CX115       | 77                   | 
+Superstore Wiesbaden | 29                   | Sony PS-LX 300 USB   | 136                  | 
+Superstore Wiesbaden | 29                   | Technics SL-1210 MK5 | 130                  | 
+Superstore Wiesbaden | 29                   | Toshiba Camileo S20  | 100                  | 
+Superstore Wiesbaden | 29                   | Wolf-Garten 2.34 E   | 71                   | 
+Superstore Wiesbaden | 29                   | Wolf-Garten Campus   | 96                   | 
+Superstore Wiesbaden | 29                   | Yamaha CDX-497       | 145                  | 
+Superstore Wiesbaden | 29                   | TOTAL                | 3263                 | 
+Superstore Wiesbaden | 30                   | AEG Öko-Lavamat Öko  | 86                   | 
+Superstore Wiesbaden | 30                   | AEG Öko Lavatherm 5  | 101                  | 
+Superstore Wiesbaden | 30                   | Bauknecht TK Care 6B | 88                   | 
+Superstore Wiesbaden | 30                   | Bauknecht WA Sensit  | 126                  | 
+Superstore Wiesbaden | 30                   | BenQ DE350P          | 112                  | 
+Superstore Wiesbaden | 30                   | Bosch Rotak 43 LI (  | 118                  | 
+Superstore Wiesbaden | 30                   | Bosch WAE 2834P      | 146                  | 
+Superstore Wiesbaden | 30                   | Bosch WTE 84301      | 150                  | 
+Superstore Wiesbaden | 30                   | Brill 28 VE/RL       | 76                   | 
+Superstore Wiesbaden | 30                   | Denon DCD-710AE      | 123                  | 
+Superstore Wiesbaden | 30                   | Einhell RPM 56 S-MS  | 142                  | 
+Superstore Wiesbaden | 30                   | Gardena CS Vertikut  | 97                   | 
+Superstore Wiesbaden | 30                   | Gardena PowerMax 42  | 132                  | 
+Superstore Wiesbaden | 30                   | Güde GV 2400 SL      | 34                   | 
+Superstore Wiesbaden | 30                   | Jaytec DJT-20        | 110                  | 
+...
+\end{lstlisting}
 \end{document}

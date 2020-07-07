@@ -68,6 +68,7 @@ public class Product {
         stmt.setString(3, product.Family);
         stmt.setString(4, product.Category);
         stmt.addBatch();
+        System.out.println("save product - `" + product.Name + "`");
       }
 
       // #2.2 Execute and count writes

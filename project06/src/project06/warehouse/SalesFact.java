@@ -44,7 +44,10 @@ public class SalesFact {
 
       // #3 Find date
       var date = pDates.stream()
-          .filter(d -> d.Date.equals(sale.Date))
+          .filter(
+              d -> d.Day == sale.Date.getDayOfMonth()
+                  && d.Month == sale.Date.getMonthValue()
+                  && d.Year == sale.Date.getYear())
           .findFirst();
       if (date.isEmpty()) {
         System.err.println("no date found for ´" + sale.Date + "` (skipping entry)");

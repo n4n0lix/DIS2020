@@ -9,10 +9,13 @@ import java.util.List;
 
 public class WHDate {
 
-  private static String InsertQuery = "insert into warehouse.date (\"date\") values (?)";
+  private static String InsertQuery = "insert into warehouse.date (\"day\",\"month\",quarter, \"year\" ) values (?,?,?,?)";
 
   public int        Id;
-  public LocalDate  Date;
+  public int        Day;
+  public int        Month;
+  public int        Quarter;
+  public int        Year;
 
   public static List<WHDate> StoreInWarehouse(Collection<LocalDate> pDates) {
     // #1 Create connection
@@ -29,7 +32,10 @@ public class WHDate {
     // #2 Load data
     try(PreparedStatement stmt = dbConn.prepareStatement(InsertQuery, Statement.RETURN_GENERATED_KEYS)) {
       for(var date : pDates) {
-        stmt.setObject(1, date);
+        stmt.setInt(1, date.getDayOfMonth());
+        stmt.setInt(2, date.getMonthValue());
+        stmt.setInt(3, (date.getMonthValue()/3)+1);
+        stmt.setInt(4, date.getYear());
         stmt.addBatch();
       }
 
@@ -44,7 +50,10 @@ public class WHDate {
           generatedKeys.next();
           WHDate whdate = new WHDate();
           whdate.Id = generatedKeys.getInt(1);
-          whdate.Date = date;
+          whdate.Day = date.getDayOfMonth();
+          whdate.Month = date.getMonthValue();
+          whdate.Quarter = (date.getMonthValue()/3)+1;
+          whdate.Year = date.getYear();
           result.add(whdate);
         }
       }

@@ -1,0 +1,62 @@
+\documentclass[a4paper,english,abstract=on]{scrartcl}
+
+\usepackage{mathtools} % loads amsmath and fixes its bugs in Unicode & XeLaTeX/LuaLaTeX 
+\usepackage[english]{babel}
+\usepackage[]{unicode-math} % provides Unicode Math support for XeLaTeX/LuaLaTeX 
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[autostyle=true]{csquotes}
+\usepackage[backend=biber, style=numeric-comp]{biblatex}
+\usepackage{listings}
+\lstset{language=Bash}
+
+\usepackage{fontspec}
+\newfontfamily{\ttconsolas}{Consolas}
+\usepackage{listings}
+\setmonofont{Consolas}
+\lstset{
+	breaklines=true,
+	tabsize=2,
+	basicstyle=\ttfamily\tiny,
+}
+
+\addbibresource{literatur.bib}
+
+\title{Exercise 7 Report}
+\subtitle{Gruppe 16}
+\author{Anastasiia Rubanovych\and Sebastian Funck}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\textbf{Briefy describe how the algorithm and your software work.}
+~\\~\\
+The algorithm incrementally checks the dataset for subsets of transactions that fulfill a minimum support. The support of a set denotes the frequency that the set appears in transactions. Instead of checking every possible subset, the algorithm starts with finding 1-item sets that fullfil the minimun support and expands on those. That means out of the $k-1$-itemsets that meet the minimum support we construct all possible $k$-itemsets and repeat the process. Finally we get a mapping from subset to it's support value. The higher the support-value the higher the amount of transactions that are containing these items.
+~\\~\\
+\textbf{List how many frequent itemsets you obtained containing \{one,two,three,...\} items.}
+\begin{itemize}
+	\item 1-item: 379
+	\item 2-item: 11
+	\item 3-item: 1
+\end{itemize}
+
+\newpage
+\textbf{Provide the found frequent itemsets containing two or more items together with their computed support value.}
+\begin{lstlisting}
+[39, 704] => 0.0139
+[39, 825] => 0.0151
+[217, 283] => 0.0104
+[217, 346] => 0.0149
+[227, 390] => 0.0101
+[368, 682] => 0.0128
+[368, 692] => 0.0114
+[368, 829] => 0.0127
+[390, 722] => 0.0103
+[704, 825] => 0.0135
+[789, 829] => 0.0119
+[39, 704, 825] => 0.0128
+\end{lstlisting}
+\end{document}

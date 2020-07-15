@@ -58,7 +58,6 @@ public class Contract {
 
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-
                 Contract contract = new Contract();
                 contract.setId(id);
                 contract.setContractDate(rs.getDate("date"));
